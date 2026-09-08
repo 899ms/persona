@@ -1,6 +1,7 @@
 import { createElement, createNode } from "../utils/dom";
 import { renderLucideIcon } from "../utils/icons";
 import { AgentWidgetConfig } from "../types";
+import { DEFAULT_HEADER_ICON_SIZE } from "../defaults";
 import { createCloseButton, createClearChatButton } from "./header-parts";
 
 /** CSS `color` values; variables are set on `[data-persona-root]` from `theme.components.header`. */
@@ -77,7 +78,7 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
   });
 
   const launcher = config?.launcher ?? {};
-  const headerIconSize = launcher.headerIconSize ?? "48px";
+  const headerIconSize = launcher.headerIconSize ?? DEFAULT_HEADER_ICON_SIZE;
   const closeButtonPlacement = launcher.closeButtonPlacement ?? "inline";
   const headerIconHidden = launcher.headerIconHidden ?? false;
   const headerIconName = launcher.headerIconName;
@@ -238,4 +239,3 @@ export const attachHeaderToContainer = (
     container.appendChild(headerElements.clearChatButtonWrapper);
   }
 };
-

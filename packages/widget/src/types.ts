@@ -3441,7 +3441,7 @@ export type EventStreamConfig = {
   /**
    * Fields to extract from event payloads for description text.
    * The first matching field value is displayed after the badge.
-   * @default ["flowName", "stepName", "name", "tool", "toolName"]
+   * @default ["flowName", "stepName", "reasoningText", "text", "name", "tool", "toolName"]
    */
   descriptionFields?: string[];
   /**

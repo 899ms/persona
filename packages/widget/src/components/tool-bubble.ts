@@ -1,5 +1,6 @@
 import { createElement, createNode } from "../utils/dom";
 import { AgentWidgetMessage, AgentWidgetConfig } from "../types";
+import { DEFAULT_TOOL_CALL_DISPLAY } from "../defaults";
 import { formatUnknownValue, describeToolTitle, resolveToolHeaderText, computeToolElapsed, parseFormattedTemplate } from "../utils/formatting";
 import { appendCharSpans } from "../utils/tool-loading-animation";
 import {
@@ -10,9 +11,6 @@ import {
   createExpandableHeader,
   updateExpandableBubbleUI,
 } from "./expandable-bubble";
-
-// Expansion state per widget instance
-export const toolExpansionState = new Set<string>();
 
 // Default the toggle chevron to the tool-call title color so it stays
 // readable on whatever surface the title does. The title falls back to
@@ -72,10 +70,13 @@ const getToolSummaryText = (
 ): { summary: string; previewText: string; isActive: boolean } => {
   const tool = message.toolCall;
   const toolDisplayConfig = config?.features?.toolCallDisplay;
-  const collapsedMode = toolDisplayConfig?.collapsedMode ?? "tool-call";
+  const collapsedMode = toolDisplayConfig?.collapsedMode ?? DEFAULT_TOOL_CALL_DISPLAY.collapsedMode;
   const previewText = tool?.success === false
     ? tool.error || "Tool failed"
-    : getToolPreviewText(message, toolDisplayConfig?.previewMaxLines ?? 3);
+    : getToolPreviewText(
+        message,
+        toolDisplayConfig?.previewMaxLines ?? DEFAULT_TOOL_CALL_DISPLAY.previewMaxLines
+      );
   const defaultSummary = tool ? describeToolTitle(tool) : "";
 
   if (!tool) {
@@ -103,15 +104,24 @@ const getToolSummaryText = (
 };
 
 // Helper function to update tool bubble UI after expansion state changes
-export const updateToolBubbleUI = (messageId: string, bubble: HTMLElement, config?: AgentWidgetConfig): void => {
+export const updateToolBubbleUI = (
+  messageId: string,
+  bubble: HTMLElement,
+  expansionState: Set<string>,
+  config?: AgentWidgetConfig
+): void => {
   updateExpandableBubbleUI(messageId, bubble, {
-    stateSet: toolExpansionState,
+    stateSet: expansionState,
     previewKind: "tool",
     iconColor: toolChevronColor(config?.toolCall ?? {}),
   });
 };
 
-export const createToolBubble = (message: AgentWidgetMessage, config?: AgentWidgetConfig): HTMLElement => {
+export const createToolBubble = (
+  message: AgentWidgetMessage,
+  config?: AgentWidgetConfig,
+  expansionState = new Set<string>()
+): HTMLElement => {
   const tool = message.toolCall;
   const toolCallConfig = config?.toolCall ?? {};
 
@@ -133,15 +143,15 @@ export const createToolBubble = (message: AgentWidgetMessage, config?: AgentWidg
   bubble.style.boxShadow =
     toolCallConfig.shadow !== undefined
       ? (toolCallConfig.shadow.trim() === "" ? "none" : toolCallConfig.shadow)
-      : "var(--persona-tool-bubble-shadow, 0 5px 15px rgba(15, 23, 42, 0.08))";
+      : "var(--persona-tool-bubble-shadow)";
 
   if (!tool) {
     return bubble;
   }
 
   const toolDisplayConfig = config?.features?.toolCallDisplay ?? {};
-  const expandable = toolDisplayConfig.expandable !== false;
-  const expanded = expandable && toolExpansionState.has(message.id);
+  const expandable = toolDisplayConfig.expandable ?? DEFAULT_TOOL_CALL_DISPLAY.expandable;
+  const expanded = expandable && expansionState.has(message.id);
   const { summary, previewText, isActive } = getToolSummaryText(message, config);
 
   const header = createExpandableHeader({ expandable, expanded, bubbleType: "tool" });
@@ -181,7 +191,7 @@ export const createToolBubble = (message: AgentWidgetMessage, config?: AgentWidg
     toolCall: tool,
     defaultSummary: summary,
     previewText,
-    collapsedMode: toolDisplayConfig.collapsedMode ?? "tool-call",
+    collapsedMode: toolDisplayConfig.collapsedMode ?? DEFAULT_TOOL_CALL_DISPLAY.collapsedMode,
     isActive,
     config: config ?? {},
     elapsed: computeToolElapsed(tool),
@@ -198,7 +208,7 @@ export const createToolBubble = (message: AgentWidgetMessage, config?: AgentWidg
   }
 
   // Apply loading animation when tool is active and no custom HTMLElement was provided
-  const loadingAnimation = toolDisplayConfig.loadingAnimation ?? "none";
+  const loadingAnimation = toolDisplayConfig.loadingAnimation ?? DEFAULT_TOOL_CALL_DISPLAY.loadingAnimation;
   const activeTemplate = toolCallConfig.activeTextTemplate;
   const completeTemplate = toolCallConfig.completeTextTemplate;
   const currentTemplate = isActive ? activeTemplate : completeTemplate;

@@ -820,8 +820,8 @@ export const createMessageActions = (
   eligibility?: MessageActionEligibility
 ): HTMLElement => {
   const showCopy = actionsConfig.showCopy ?? true;
-  const showUpvote = actionsConfig.showUpvote ?? true;
-  const showDownvote = actionsConfig.showDownvote ?? true;
+  const showUpvote = actionsConfig.showUpvote ?? false;
+  const showDownvote = actionsConfig.showDownvote ?? false;
   const showReadAloud = actionsConfig.showReadAloud ?? false;
   // Retry and edit are per-message: the config flag only opts in, the caller's
   // eligibility decides which single message actually shows the control.

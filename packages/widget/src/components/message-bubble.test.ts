@@ -896,6 +896,14 @@ describe("createMessageActions: chromeless action buttons", () => {
   const actionButtons = (row: HTMLElement) =>
     Array.from(row.querySelectorAll<HTMLButtonElement>("button[data-action]"));
 
+  it("keeps voting controls hidden unless explicitly enabled", () => {
+    const row = createMessageActions(makeMessage({ id: "actions-default-votes" }), {});
+
+    expect(actionButtons(row).map((btn) => btn.getAttribute("data-action"))).toEqual([
+      "copy",
+    ]);
+  });
+
   it("styles every built-in action through the message-action class alone", () => {
     const row = createMessageActions(makeMessage({ id: "actions-builtin" }), {
       showCopy: true,

@@ -3347,11 +3347,11 @@
 }
 
 [data-persona-root] .persona-message-user-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-message-user-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-message-user-shadow);
 }
 
 [data-persona-root] .persona-tool-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-tool-bubble-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-tool-bubble-shadow);
 }
 
 /* ==============================
@@ -3435,7 +3435,7 @@
 }
 
 [data-persona-root] .persona-reasoning-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-reasoning-bubble-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-reasoning-bubble-shadow);
 }
 
 /* Artifact markdown (no .persona-message-bubble wrapper) */

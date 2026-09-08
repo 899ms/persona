@@ -10,14 +10,6 @@ import { renderIconNode } from "../utils/icon-node";
 import { WEBMCP_TOOL_PREFIX } from "../webmcp-bridge";
 
 /**
- * Per-message expanded/collapsed state for the technical-details section.
- * Absent means "use the config default" (`approval.detailsDisplay`). Lives at
- * module scope so the choice survives idiomorph re-renders, mirroring
- * `toolExpansionState` in tool-bubble.ts.
- */
-export const approvalDetailsExpansionState = new Map<string, boolean>();
-
-/**
  * Turn a wire tool name into a user-facing label: strips the `webmcp:`
  * prefix and splits snake_case / kebab-case / camelCase into a sentence
  * (`add_to_cart` → "Add to cart"). Falls back to the input when nothing
@@ -41,10 +33,11 @@ const resolveApprovalConfig = (config?: AgentWidgetConfig) =>
 
 const isDetailsExpanded = (
   messageId: string,
+  expansionState: Map<string, boolean>,
   config?: AgentWidgetConfig
 ): boolean => {
   const detailsMode = resolveApprovalConfig(config)?.detailsDisplay ?? "collapsed";
-  return approvalDetailsExpansionState.get(messageId) ?? detailsMode === "expanded";
+  return expansionState.get(messageId) ?? detailsMode === "expanded";
 };
 
 const applyDetailsToggleState = (
@@ -72,18 +65,19 @@ const applyDetailsToggleState = (
 
 /**
  * Sync the technical-details section (toggle label/chevron + visibility) with
- * `approvalDetailsExpansionState`. Called from the ui.ts expansion event
+ * the widget instance's expansion state. Called from the ui.ts expansion event
  * delegation after a toggle click.
  */
 export const updateApprovalDetailsUI = (
   messageId: string,
   bubble: HTMLElement,
-  config?: AgentWidgetConfig
+  config?: AgentWidgetConfig,
+  expansionState = new Map<string, boolean>()
 ): void => {
   const toggle = bubble.querySelector('button[data-bubble-type="approval"]') as HTMLElement | null;
   const details = bubble.querySelector("[data-approval-details]") as HTMLElement | null;
   if (!toggle || !details) return;
-  const expanded = isDetailsExpanded(messageId, config);
+  const expanded = isDetailsExpanded(messageId, expansionState, config);
   applyDetailsToggleState(toggle, expanded, config);
   details.style.display = expanded ? "" : "none";
 };
@@ -112,16 +106,16 @@ export const updateApprovalBubbleUI = (
     // Update badge color
     if (approval.status === "approved") {
       statusBadge.className = "persona-inline-flex persona-items-center persona-px-2 persona-py-0.5 persona-rounded-full persona-text-xs persona-font-medium";
-      statusBadge.style.backgroundColor = "var(--persona-palette-colors-success-100, #dcfce7)";
-      statusBadge.style.color = "var(--persona-palette-colors-success-700, #15803d)";
+      statusBadge.style.backgroundColor = "var(--persona-palette-colors-success-100)";
+      statusBadge.style.color = "var(--persona-palette-colors-success-700)";
     } else if (approval.status === "denied") {
       statusBadge.className = "persona-inline-flex persona-items-center persona-px-2 persona-py-0.5 persona-rounded-full persona-text-xs persona-font-medium";
-      statusBadge.style.backgroundColor = "var(--persona-palette-colors-error-100, #fee2e2)";
-      statusBadge.style.color = "var(--persona-palette-colors-error-700, #b91c1c)";
+      statusBadge.style.backgroundColor = "var(--persona-palette-colors-error-100)";
+      statusBadge.style.color = "var(--persona-palette-colors-error-700)";
     } else if (approval.status === "timeout") {
       statusBadge.className = "persona-inline-flex persona-items-center persona-px-2 persona-py-0.5 persona-rounded-full persona-text-xs persona-font-medium";
-      statusBadge.style.backgroundColor = "var(--persona-palette-colors-warning-100, #fef3c7)";
-      statusBadge.style.color = "var(--persona-palette-colors-warning-700, #b45309)";
+      statusBadge.style.backgroundColor = "var(--persona-palette-colors-warning-100)";
+      statusBadge.style.color = "var(--persona-palette-colors-warning-700)";
     }
     statusBadge.setAttribute("data-approval-status", approval.status);
   }
@@ -133,9 +127,9 @@ export const updateApprovalBubbleUI = (
     const iconData = approval.status === "denied" ? ShieldX
       : approval.status === "timeout" ? ShieldAlert
       : ShieldCheck;
-    const iconColor = approval.status === "approved" ? "var(--persona-feedback-success, #16a34a)"
-      : approval.status === "denied" ? "var(--persona-feedback-error, #dc2626)"
-      : approval.status === "timeout" ? "var(--persona-feedback-warning, #ca8a04)"
+    const iconColor = approval.status === "approved" ? "var(--persona-feedback-success, var(--persona-palette-colors-success-600))"
+      : approval.status === "denied" ? "var(--persona-feedback-error, var(--persona-palette-colors-error-600))"
+      : approval.status === "timeout" ? "var(--persona-feedback-warning, var(--persona-palette-colors-warning-600))"
       : (approvalConfig?.titleColor ?? "currentColor");
     const icon = renderIconNode(iconData, 20, iconColor, 2);
     if (icon) {
@@ -155,7 +149,8 @@ export const updateApprovalBubbleUI = (
  */
 export const createApprovalBubble = (
   message: AgentWidgetMessage,
-  config?: AgentWidgetConfig
+  config?: AgentWidgetConfig,
+  expansionState = new Map<string, boolean>()
 ): HTMLElement => {
   const approval = message.approval;
   const approvalConfig = config?.approval !== false ? config?.approval : undefined;
@@ -178,12 +173,12 @@ export const createApprovalBubble = (
   bubble.setAttribute("data-message-id", message.id);
 
   // Apply styling: use semantic tokens with config overrides
-  bubble.style.backgroundColor = approvalConfig?.backgroundColor ?? "var(--persona-approval-bg, #fefce8)";
-  bubble.style.borderColor = approvalConfig?.borderColor ?? "var(--persona-approval-border, #fef08a)";
+  bubble.style.backgroundColor = approvalConfig?.backgroundColor ?? "var(--persona-approval-bg)";
+  bubble.style.borderColor = approvalConfig?.borderColor ?? "var(--persona-approval-border)";
   bubble.style.boxShadow =
     approvalConfig?.shadow !== undefined
       ? (approvalConfig.shadow.trim() === "" ? "none" : approvalConfig.shadow)
-      : "var(--persona-approval-shadow, 0 5px 15px rgba(15, 23, 42, 0.08))";
+      : "var(--persona-approval-shadow)";
 
   if (!approval) {
     return bubble;
@@ -201,9 +196,9 @@ export const createApprovalBubble = (
   const iconData = approval.status === "denied" ? ShieldX
     : approval.status === "timeout" ? ShieldAlert
     : ShieldCheck;
-  const iconColor = approval.status === "approved" ? "var(--persona-feedback-success, #16a34a)"
-    : approval.status === "denied" ? "var(--persona-feedback-error, #dc2626)"
-    : approval.status === "timeout" ? "var(--persona-feedback-warning, #ca8a04)"
+  const iconColor = approval.status === "approved" ? "var(--persona-feedback-success, var(--persona-palette-colors-success-600))"
+    : approval.status === "denied" ? "var(--persona-feedback-error, var(--persona-palette-colors-error-600))"
+    : approval.status === "timeout" ? "var(--persona-feedback-warning, var(--persona-palette-colors-warning-600))"
     : (approvalConfig?.titleColor ?? "currentColor");
   const icon = renderIconNode(iconData, 20, iconColor, 2);
   if (icon) {
@@ -227,16 +222,16 @@ export const createApprovalBubble = (
     const badge = createElement("span", "persona-inline-flex persona-items-center persona-px-2 persona-py-0.5 persona-rounded-full persona-text-xs persona-font-medium");
     badge.setAttribute("data-approval-status", approval.status);
     if (approval.status === "approved") {
-      badge.style.backgroundColor = "var(--persona-palette-colors-success-100, #dcfce7)";
-      badge.style.color = "var(--persona-palette-colors-success-700, #15803d)";
+      badge.style.backgroundColor = "var(--persona-palette-colors-success-100)";
+      badge.style.color = "var(--persona-palette-colors-success-700)";
       badge.textContent = "Approved";
     } else if (approval.status === "denied") {
-      badge.style.backgroundColor = "var(--persona-palette-colors-error-100, #fee2e2)";
-      badge.style.color = "var(--persona-palette-colors-error-700, #b91c1c)";
+      badge.style.backgroundColor = "var(--persona-palette-colors-error-100)";
+      badge.style.color = "var(--persona-palette-colors-error-700)";
       badge.textContent = "Denied";
     } else if (approval.status === "timeout") {
-      badge.style.backgroundColor = "var(--persona-palette-colors-warning-100, #fef3c7)";
-      badge.style.color = "var(--persona-palette-colors-warning-700, #b45309)";
+      badge.style.backgroundColor = "var(--persona-palette-colors-warning-100)";
+      badge.style.color = "var(--persona-palette-colors-warning-700)";
       badge.textContent = "Timeout";
     }
     titleRow.appendChild(badge);
@@ -303,7 +298,7 @@ export const createApprovalBubble = (
   const showDescriptionInDetails = Boolean(approval.description) && !summaryFallsBackToDescription;
   const hasDetails = showDescriptionInDetails || Boolean(approval.parameters);
   if (detailsMode !== "hidden" && hasDetails) {
-    const expanded = isDetailsExpanded(message.id, config);
+    const expanded = isDetailsExpanded(message.id, expansionState, config);
 
     const toggle = createElement(
       "button",
@@ -364,10 +359,10 @@ export const createApprovalBubble = (
     // Approve button
     const approveBtn = createElement("button", "persona-inline-flex persona-items-center persona-px-3 persona-py-1.5 persona-rounded-md persona-text-xs persona-font-medium persona-border-none persona-cursor-pointer") as HTMLButtonElement;
     approveBtn.type = "button";
-    approveBtn.style.backgroundColor = approvalConfig?.approveButtonColor ?? "var(--persona-approval-approve-bg, #22c55e)";
-    approveBtn.style.color = approvalConfig?.approveButtonTextColor ?? "#ffffff";
+    approveBtn.style.backgroundColor = approvalConfig?.approveButtonColor ?? "var(--persona-approval-approve-bg)";
+    approveBtn.style.color = approvalConfig?.approveButtonTextColor ?? "var(--persona-button-primary-fg)";
     approveBtn.setAttribute("data-approval-action", "approve");
-    const approveIcon = renderIconNode(ShieldCheck, 14, approvalConfig?.approveButtonTextColor ?? "#ffffff", 2);
+    const approveIcon = renderIconNode(ShieldCheck, 14, approvalConfig?.approveButtonTextColor ?? "var(--persona-button-primary-fg)", 2);
     if (approveIcon) {
       approveIcon.style.marginRight = "4px";
       approveBtn.appendChild(approveIcon);
@@ -379,10 +374,10 @@ export const createApprovalBubble = (
     const denyBtn = createElement("button", "persona-inline-flex persona-items-center persona-px-3 persona-py-1.5 persona-rounded-md persona-text-xs persona-font-medium persona-cursor-pointer") as HTMLButtonElement;
     denyBtn.type = "button";
     denyBtn.style.backgroundColor = approvalConfig?.denyButtonColor ?? "transparent";
-    denyBtn.style.color = approvalConfig?.denyButtonTextColor ?? "var(--persona-feedback-error, #dc2626)";
-    denyBtn.style.border = `1px solid ${approvalConfig?.denyButtonTextColor ? approvalConfig.denyButtonTextColor : "var(--persona-palette-colors-error-200, #fca5a5)"}`;
+    denyBtn.style.color = approvalConfig?.denyButtonTextColor ?? "var(--persona-feedback-error, var(--persona-palette-colors-error-600))";
+    denyBtn.style.border = `1px solid ${approvalConfig?.denyButtonTextColor ? approvalConfig.denyButtonTextColor : "var(--persona-palette-colors-error-200)"}`;
     denyBtn.setAttribute("data-approval-action", "deny");
-    const denyIcon = renderIconNode(ShieldX, 14, approvalConfig?.denyButtonTextColor ?? "var(--persona-feedback-error, #dc2626)", 2);
+    const denyIcon = renderIconNode(ShieldX, 14, approvalConfig?.denyButtonTextColor ?? "var(--persona-feedback-error, var(--persona-palette-colors-error-600))", 2);
     if (denyIcon) {
       denyIcon.style.marginRight = "4px";
       denyBtn.appendChild(denyIcon);

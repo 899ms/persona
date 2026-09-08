@@ -2,7 +2,6 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  approvalDetailsExpansionState,
   createApprovalBubble,
   humanizeToolName,
   updateApprovalDetailsUI,
@@ -11,6 +10,7 @@ import {
   getWebMcpToolDisplayTitle,
   recordWebMcpToolDisplayTitles,
 } from "../webmcp-bridge";
+import { createTheme, themeToCssVariables } from "../utils/tokens";
 import type {
   AgentWidgetApproval,
   AgentWidgetConfig,
@@ -74,6 +74,51 @@ describe("createApprovalBubble shadow", () => {
   });
 });
 
+describe("createApprovalBubble resolved-status colors", () => {
+  const colorFor = (status: "approved" | "denied" | "timeout") =>
+    createApprovalBubble(makeMessage({ status }))
+      .querySelector("[data-approval-icon] svg")
+      ?.getAttribute("stroke") ?? "";
+
+  const resolveCssVariable = (
+    value: string,
+    variables: Record<string, string>
+  ): string | undefined => {
+    const match = /^var\((--[\w-]+)(?:,\s*(.+))?\)$/.exec(value.trim());
+    if (!match) return value;
+    return variables[match[1]] ??
+      (match[2] ? resolveCssVariable(match[2], variables) : undefined);
+  };
+
+  it("resolves each legacy feedback color through emitted palette tokens", () => {
+    const variables = themeToCssVariables(createTheme());
+
+    expect(resolveCssVariable(colorFor("approved"), variables)).toBe("#16a34a");
+    expect(resolveCssVariable(colorFor("denied"), variables)).toBe("#dc2626");
+    expect(resolveCssVariable(colorFor("timeout"), variables)).toBe("#ca8a04");
+  });
+
+  it("keeps host feedback token overrides ahead of palette fallbacks", () => {
+    const variables = {
+      ...themeToCssVariables(createTheme()),
+      "--persona-feedback-error": "rebeccapurple",
+    };
+
+    expect(resolveCssVariable(colorFor("denied"), variables)).toBe(
+      "rebeccapurple"
+    );
+  });
+
+  it("gives the pending Deny label and icon a color emitted by the default theme", () => {
+    const bubble = createApprovalBubble(makeMessage());
+    const deny = bubble.querySelector<HTMLButtonElement>('[data-approval-action="deny"]')!;
+    const variables = themeToCssVariables(createTheme());
+    expect(resolveCssVariable(deny.style.color, variables)).toBe("#dc2626");
+    expect(resolveCssVariable(deny.querySelector("svg")!.getAttribute("stroke")!, variables))
+      .toBe("#dc2626");
+  });
+});
+
 const TOOL_DESCRIPTION =
   "Add products to the shopping cart. IMPORTANT: If a product has required options you MUST include the variantId.";
 
@@ -95,11 +140,13 @@ const getDetails = (bubble: HTMLElement) =>
   bubble.querySelector("[data-approval-details]") as HTMLElement | null;
 
 beforeEach(() => {
-  approvalDetailsExpansionState.clear();
+  expansionState = new Map<string, boolean>();
   // Reset display titles recorded by a prior test (the map is rebuilt from
   // each full snapshot, so recording an empty snapshot clears it).
   recordWebMcpToolDisplayTitles([]);
 });
+
+let expansionState: Map<string, boolean>;
 
 describe("humanizeToolName", () => {
   it("converts snake_case to a sentence", () => {
@@ -157,8 +204,8 @@ describe("createApprovalBubble summary and details", () => {
   });
 
   it("respects a per-message expansion override from prior toggling", () => {
-    approvalDetailsExpansionState.set("msg-1", true);
-    const bubble = createApprovalBubble(makeDetailedMessage());
+    expansionState.set("msg-1", true);
+    const bubble = createApprovalBubble(makeDetailedMessage(), undefined, expansionState);
     expect(getToggle(bubble)?.getAttribute("aria-expanded")).toBe("true");
     expect(getDetails(bubble)?.style.display).toBe("");
   });
@@ -204,7 +251,7 @@ describe("createApprovalBubble summary and details", () => {
     recordWebMcpToolDisplayTitles([
       { name: "add_to_cart", description: "", title: "Add to Cart" },
     ]);
-    const bubble = createApprovalBubble(makeDetailedMessage());
+    const bubble = createApprovalBubble(makeDetailedMessage(), undefined, expansionState);
     expect(getSummary(bubble)?.textContent).toBe(
       "The assistant wants to use “Add to Cart”."
     );
@@ -265,14 +312,14 @@ describe("updateApprovalDetailsUI", () => {
     const bubble = createApprovalBubble(makeDetailedMessage());
     expect(getDetails(bubble)?.style.display).toBe("none");
 
-    approvalDetailsExpansionState.set("msg-1", true);
-    updateApprovalDetailsUI("msg-1", bubble);
+    expansionState.set("msg-1", true);
+    updateApprovalDetailsUI("msg-1", bubble, undefined, expansionState);
     expect(getDetails(bubble)?.style.display).toBe("");
     expect(getToggle(bubble)?.getAttribute("aria-expanded")).toBe("true");
     expect(getToggle(bubble)?.textContent).toContain("Hide details");
 
-    approvalDetailsExpansionState.set("msg-1", false);
-    updateApprovalDetailsUI("msg-1", bubble);
+    expansionState.set("msg-1", false);
+    updateApprovalDetailsUI("msg-1", bubble, undefined, expansionState);
     expect(getDetails(bubble)?.style.display).toBe("none");
     expect(getToggle(bubble)?.textContent).toContain("Show details");
   });

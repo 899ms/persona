@@ -16,11 +16,32 @@ export const DEFAULT_FLOATING_LAUNCHER_WIDTH = "min(440px, calc(100vw - 24px))";
 /** Max width cap paired with {@link DEFAULT_FLOATING_LAUNCHER_WIDTH} for theme defaults. */
 export const DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH = "440px";
 
+/** Canonical header avatar box size, shared by the initial render and updates. */
+export const DEFAULT_HEADER_ICON_SIZE = "40px";
+
 /**
  * Canonical composer placeholder. The low-level builders fall back to this so
  * they cannot drift from `DEFAULT_WIDGET_CONFIG.copy.inputPlaceholder`.
  */
 export const DEFAULT_INPUT_PLACEHOLDER = "How can I help...";
+
+/** Shared by config resolution and standalone transcript component builders. */
+export const DEFAULT_TOOL_CALL_DISPLAY = {
+  collapsedMode: "tool-call",
+  activePreview: false,
+  grouped: false,
+  groupedMode: "stack",
+  previewMaxLines: 3,
+  expandable: true,
+  loadingAnimation: "none",
+} satisfies NonNullable<NonNullable<AgentWidgetConfig["features"]>["toolCallDisplay"]>;
+
+export const DEFAULT_REASONING_DISPLAY = {
+  activePreview: false,
+  previewMaxLines: 3,
+  expandable: true,
+  loadingAnimation: "none",
+} satisfies NonNullable<NonNullable<AgentWidgetConfig["features"]>["reasoningDisplay"]>;
 
 export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
   enabled: true,
@@ -40,7 +61,7 @@ export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
   autoExpand: false,
   callToActionIconHidden: false,
   agentIconSize: "40px",
-  headerIconSize: "40px",
+  headerIconSize: DEFAULT_HEADER_ICON_SIZE,
   // closeButtonSize / clearChat.size omitted so theme.components.header.controlSize
   // sizes the header controls; setting either here would pin them past the token.
   // Zero out browser-default <button> padding so the icon gets the full
@@ -155,21 +176,8 @@ export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
       // default so the default UX keeps the affordance.)
       showActivityWhilePinned: true,
     },
-    toolCallDisplay: {
-      collapsedMode: "tool-call",
-      activePreview: false,
-      grouped: false,
-      groupedMode: "stack",
-      previewMaxLines: 3,
-      expandable: true,
-      loadingAnimation: "none",
-    },
-    reasoningDisplay: {
-      activePreview: false,
-      previewMaxLines: 3,
-      expandable: true,
-      loadingAnimation: "none",
-    },
+    toolCallDisplay: DEFAULT_TOOL_CALL_DISPLAY,
+    reasoningDisplay: DEFAULT_REASONING_DISPLAY,
     streamAnimation: {
       type: "none",
       placeholder: "none",
@@ -375,6 +383,14 @@ export function mergeWithDefaults(
       return {
         ...DEFAULT_WIDGET_CONFIG.features,
         ...config.features,
+        toolCallDisplay: {
+          ...DEFAULT_WIDGET_CONFIG.features?.toolCallDisplay,
+          ...config.features?.toolCallDisplay,
+        },
+        reasoningDisplay: {
+          ...DEFAULT_WIDGET_CONFIG.features?.reasoningDisplay,
+          ...config.features?.reasoningDisplay,
+        },
         ...(mergedScrollToBottom !== undefined ? { scrollToBottom: mergedScrollToBottom } : {}),
         ...(mergedScrollBehavior !== undefined ? { scrollBehavior: mergedScrollBehavior } : {}),
         ...(mergedArtifacts !== undefined ? { artifacts: mergedArtifacts } : {}),

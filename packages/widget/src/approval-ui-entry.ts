@@ -6,7 +6,6 @@
  * `approval-ui-loader.ts`. See `src/approval-ui.ts` for the transport module.
  */
 export {
-  approvalDetailsExpansionState,
   createApprovalBubble,
   humanizeToolName,
   updateApprovalDetailsUI,

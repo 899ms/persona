@@ -1,6 +1,7 @@
 import { createElement } from "../utils/dom";
 import { renderLucideIcon } from "../utils/icons";
 import { AgentWidgetConfig, AgentWidgetMessage } from "../types";
+import { DEFAULT_REASONING_DISPLAY } from "../defaults";
 import { describeReasonStatus, computeReasoningElapsed, parseFormattedTemplate } from "../utils/formatting";
 import { appendCharSpans } from "../utils/tool-loading-animation";
 import {
@@ -11,9 +12,6 @@ import {
   createExpandableHeader,
   updateExpandableBubbleUI,
 } from "./expandable-bubble";
-
-// Expansion state per widget instance
-export const reasoningExpansionState = new Set<string>();
 
 const getReasoningPreviewText = (message: AgentWidgetMessage, maxLines: number): string => {
   const text = message.reasoning?.chunks.join("").trim() ?? "";
@@ -27,15 +25,23 @@ const getReasoningPreviewText = (message: AgentWidgetMessage, maxLines: number):
 };
 
 // Helper function to update reasoning bubble UI after expansion state changes
-export const updateReasoningBubbleUI = (messageId: string, bubble: HTMLElement): void => {
+export const updateReasoningBubbleUI = (
+  messageId: string,
+  bubble: HTMLElement,
+  expansionState: Set<string>
+): void => {
   updateExpandableBubbleUI(messageId, bubble, {
-    stateSet: reasoningExpansionState,
+    stateSet: expansionState,
     previewKind: "reasoning",
     iconColor: "currentColor",
   });
 };
 
-export const createReasoningBubble = (message: AgentWidgetMessage, config?: AgentWidgetConfig): HTMLElement => {
+export const createReasoningBubble = (
+  message: AgentWidgetMessage,
+  config?: AgentWidgetConfig,
+  expansionState = new Set<string>()
+): HTMLElement => {
   const reasoning = message.reasoning;
   const bubble = createExpandableBubbleShell("persona-reasoning-bubble", message.id);
 
@@ -44,10 +50,13 @@ export const createReasoningBubble = (message: AgentWidgetMessage, config?: Agen
   }
 
   const reasoningDisplayConfig = config?.features?.reasoningDisplay ?? {};
-  const expandable = reasoningDisplayConfig.expandable !== false;
-  const expanded = expandable && reasoningExpansionState.has(message.id);
+  const expandable = reasoningDisplayConfig.expandable ?? DEFAULT_REASONING_DISPLAY.expandable;
+  const expanded = expandable && expansionState.has(message.id);
   const isActive = reasoning.status !== "complete";
-  const previewText = getReasoningPreviewText(message, reasoningDisplayConfig.previewMaxLines ?? 3);
+  const previewText = getReasoningPreviewText(
+    message,
+    reasoningDisplayConfig.previewMaxLines ?? DEFAULT_REASONING_DISPLAY.previewMaxLines
+  );
   const header = createExpandableHeader({ expandable, expanded, bubbleType: "reasoning" });
 
   const headerContent = createElement("div", "persona-flex persona-flex-col persona-text-left");
@@ -91,7 +100,7 @@ export const createReasoningBubble = (message: AgentWidgetMessage, config?: Agen
   headerContent.appendChild(status);
 
   // Template and animation support
-  const loadingAnimation = reasoningDisplayConfig.loadingAnimation ?? "none";
+  const loadingAnimation = reasoningDisplayConfig.loadingAnimation ?? DEFAULT_REASONING_DISPLAY.loadingAnimation;
   const activeTemplate = reasoningConfig.activeTextTemplate;
   const completeTemplate = reasoningConfig.completeTextTemplate;
   const currentTemplate = isActive ? activeTemplate : completeTemplate;

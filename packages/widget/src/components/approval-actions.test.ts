@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBuiltInApprovalPlugin } from "./approval-actions";
-import { approvalDetailsExpansionState } from "./approval-bubble";
 import type {
   AgentWidgetApproval,
   AgentWidgetConfig,
@@ -43,9 +42,10 @@ const makeMessage = (
 // Each widget owns its own plugin instance + teardown (state is per-instance).
 // Track teardowns so afterEach can release any leftover document listeners.
 let teardowns: Array<() => void> = [];
+let expansionState: Map<string, boolean>;
 
 const makePlugin = (): { plugin: AgentWidgetPlugin; teardown: () => void } => {
-  const handle = createBuiltInApprovalPlugin();
+  const handle = createBuiltInApprovalPlugin(expansionState);
   teardowns.push(handle.teardown);
   return handle;
 };
@@ -81,8 +81,11 @@ const click = (el: Element | null | undefined): void => {
 afterEach(() => {
   teardowns.forEach((t) => t());
   teardowns = [];
-  approvalDetailsExpansionState.clear();
   document.body.innerHTML = "";
+});
+
+beforeEach(() => {
+  expansionState = new Map<string, boolean>();
 });
 
 describe("built-in approval — flag off (default)", () => {
@@ -226,7 +229,7 @@ describe("built-in approval — parameters disclosure", () => {
     expect(pre?.hidden).toBe(true);
     click(el?.querySelector(".persona-approval-head"));
     expect(pre?.hidden).toBe(false);
-    expect(approvalDetailsExpansionState.get("msg-1")).toBe(true);
+    expect(expansionState.get("msg-1")).toBe(true);
   });
 
   it("detailsDisplay:'expanded' shows params up front", () => {

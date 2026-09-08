@@ -263,8 +263,8 @@ import {
   getBubbleClasses,
   CUSTOM_MESSAGE_ACTION_PREFIX,
 } from "./components/message-bubble";
-import { createReasoningBubble, reasoningExpansionState, updateReasoningBubbleUI } from "./components/reasoning-bubble";
-import { createToolBubble, toolExpansionState, updateToolBubbleUI } from "./components/tool-bubble";
+import { createReasoningBubble, updateReasoningBubbleUI } from "./components/reasoning-bubble";
+import { createToolBubble, updateToolBubbleUI } from "./components/tool-bubble";
 import {
   buildStructuredAnswers,
   ensureAskUserQuestionSheet,
@@ -324,7 +324,11 @@ import {
 } from "./utils/artifact-resize";
 import { loadFormsUi, getFormsUiSync } from "./forms-ui-loader";
 import { pluginRegistry } from "./plugins/registry";
-import { mergeWithDefaults, DEFAULT_FLOATING_LAUNCHER_WIDTH } from "./defaults";
+import {
+  DEFAULT_FLOATING_LAUNCHER_WIDTH,
+  DEFAULT_HEADER_ICON_SIZE,
+  mergeWithDefaults,
+} from "./defaults";
 import { mergeConfigUpdate } from "./utils/config-merge";
 import { createEventBus } from "./utils/events";
 import {
@@ -924,6 +928,11 @@ export const createAgentExperience = (
   }
 
   let config = mergeWithDefaults(initialConfig) as AgentWidgetConfig;
+  // Message ids are only unique within a widget session. Keep disclosure state
+  // beside the widget that renders it, not in component module scope.
+  const toolExpansionState = new Set<string>();
+  const reasoningExpansionState = new Set<string>();
+  const approvalDetailsExpansionState = new Map<string, boolean>();
   const applyTooltipTiming = (): void => {
     configureTooltipTiming({
       delayMs: config.tooltip?.delayMs ?? DEFAULT_TOOLTIP_DELAY_MS,
@@ -977,7 +986,7 @@ export const createAgentExperience = (
     mod.initApprovalUi({
       webMcpToolTitle: getWebMcpToolDisplayTitle,
     });
-    const built = mod.createBuiltInApprovalPlugin();
+    const built = mod.createBuiltInApprovalPlugin(approvalDetailsExpansionState);
     builtInApprovalPlugin = built.plugin;
     teardownBuiltInApprovals = built.teardown;
   };
@@ -2687,22 +2696,22 @@ export const createAgentExperience = (
       } else {
         reasoningExpansionState.add(messageId);
       }
-      updateReasoningBubbleUI(messageId, bubble);
+      updateReasoningBubbleUI(messageId, bubble, reasoningExpansionState);
     } else if (bubbleType === 'tool') {
       if (toolExpansionState.has(messageId)) {
         toolExpansionState.delete(messageId);
       } else {
         toolExpansionState.add(messageId);
       }
-      updateToolBubbleUI(messageId, bubble, config);
+      updateToolBubbleUI(messageId, bubble, toolExpansionState, config);
     } else if (bubbleType === 'approval' && approvalUi) {
       // approvalUi is always set here: approval bubbles only exist after the
       // chunk was adopted. The guard keeps a stray click on a stub harmless.
       const approvalConfig = config.approval !== false ? config.approval : undefined;
       const defaultExpanded = (approvalConfig?.detailsDisplay ?? 'collapsed') === 'expanded';
-      const expanded = approvalUi.approvalDetailsExpansionState.get(messageId) ?? defaultExpanded;
-      approvalUi.approvalDetailsExpansionState.set(messageId, !expanded);
-      approvalUi.updateApprovalDetailsUI(messageId, bubble, config);
+      const expanded = approvalDetailsExpansionState.get(messageId) ?? defaultExpanded;
+      approvalDetailsExpansionState.set(messageId, !expanded);
+      approvalUi.updateApprovalDetailsUI(messageId, bubble, config, approvalDetailsExpansionState);
     }
     // Invalidate cached wrapper so next render rebuilds with current expansion state
     messageCache.delete(messageId);
@@ -5032,6 +5041,7 @@ export const createAgentExperience = (
         variant: "chip",
         behavior: "send",
         overflow: "wrap",
+        maxItems: 4,
         config,
         plugins,
         submitPrompt: submitSuggestionPrompt,
@@ -6607,7 +6617,7 @@ export const createAgentExperience = (
           };
           liveBubble = approvalPlugin.renderApproval({
             message,
-            defaultRenderer: () => approvalMod.createApprovalBubble(message, config),
+            defaultRenderer: () => approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState),
             config,
             approve: (options) => resolveDecision("approved", options),
             deny: (options) => resolveDecision("denied", options)
@@ -6623,7 +6633,7 @@ export const createAgentExperience = (
           const existing = container.querySelector<HTMLElement>(`#wrapper-${message.id}`);
           existing?.removeAttribute("data-preserve-runtime");
           lastApprovalBubbleFingerprint.delete(message.id);
-          bubble = approvalMod.createApprovalBubble(message, config);
+          bubble = approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState);
         } else {
           // A fresh live bubble to hydrate (needsRebuild), or fingerprint
           // unchanged so we reuse the preserved live wrapper (`bubble: null`).
@@ -6643,14 +6653,14 @@ export const createAgentExperience = (
           if (!showReasoning) return;
           bubble = matchingPlugin.renderReasoning({
             message,
-            defaultRenderer: () => createReasoningBubble(message, config),
+            defaultRenderer: () => createReasoningBubble(message, config, reasoningExpansionState),
             config
           });
         } else if (message.variant === "tool" && message.toolCall && matchingPlugin.renderToolCall) {
           if (!showToolCalls) return;
           bubble = matchingPlugin.renderToolCall({
             message,
-            defaultRenderer: () => createToolBubble(message, config),
+            defaultRenderer: () => createToolBubble(message, config, toolExpansionState),
             config
           });
         } else if (matchingPlugin.renderMessage) {
@@ -6818,15 +6828,15 @@ export const createAgentExperience = (
       if (!bubble) {
         if (message.variant === "reasoning" && message.reasoning) {
           if (!showReasoning) return;
-          bubble = createReasoningBubble(message, config);
+          bubble = createReasoningBubble(message, config, reasoningExpansionState);
         } else if (message.variant === "tool" && message.toolCall) {
           if (!showToolCalls) return;
-          bubble = createToolBubble(message, config);
+          bubble = createToolBubble(message, config, toolExpansionState);
         } else if (message.variant === "approval" && message.approval) {
           if (config.approval === false) return;
           const approvalMod = ensureApprovalUi();
           if (!approvalMod) return;
-          bubble = approvalMod.createApprovalBubble(message, config);
+          bubble = approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState);
         } else {
           // Check for custom message renderers in layout config
           const messageLayoutConfig = config.layout?.messages;
@@ -13892,7 +13902,7 @@ export const createAgentExperience = (
       // Hide icon if either headerIconHidden is true OR layout.header.showIcon is false
       const shouldHideIcon = headerIconHidden || layoutShowIcon === false;
       const headerIconName = launcher.headerIconName;
-      const headerIconSize = launcher.headerIconSize ?? "48px";
+      const headerIconSize = launcher.headerIconSize ?? DEFAULT_HEADER_ICON_SIZE;
 
       if (iconHolder) {
         const headerEl = header;
@@ -14944,6 +14954,9 @@ export const createAgentExperience = (
     clearChat() {
       // Clear messages in session (this will trigger onMessagesChanged which re-renders)
       artifactsPaneUserHidden = false;
+      toolExpansionState.clear();
+      reasoningExpansionState.clear();
+      approvalDetailsExpansionState.clear();
       session.clearMessages();
       messageCache.clear();
       resumeAutoScroll();
@@ -15462,6 +15475,9 @@ export const createAgentExperience = (
         clearInterval(toolElapsedTimerId);
         toolElapsedTimerId = null;
       }
+      toolExpansionState.clear();
+      reasoningExpansionState.clear();
+      approvalDetailsExpansionState.clear();
       destroyCallbacks.forEach((cb) => cb());
       wrapper.remove();
       pillRoot?.remove();

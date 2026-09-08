@@ -257,6 +257,7 @@ describe("legacy suggestionChipsConfig scoping", () => {
     expect(button.style.paddingLeft).toBe("12px");
     expect(button.style.paddingTop).toBe("6px");
     expect(button.style.fontWeight).toBe("500");
+    expect(button.style.fontFamily).toBe("");
   });
 
   it("does not let chip config override card and list padding tokens", () => {
