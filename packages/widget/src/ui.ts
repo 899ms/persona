@@ -7003,16 +7003,38 @@ export const createAgentExperience = (
     // Add standalone typing indicator only if streaming but no assistant message is streaming yet
     // (This shows while waiting for the stream to start)
     // Check for ANY streaming assistant message, even if empty (to avoid duplicate bubbles)
+    //
+    // Tool and reasoning rows hidden by `features.showToolCalls: false` /
+    // `features.showReasoning: false` never render, so they must not count as
+    // "the assistant is already visibly responding": otherwise the transcript
+    // goes blank for the whole tool phase. When those rows are shown, their own
+    // bubble carries the loading animation and the standalone dots stay hidden.
+    const isHiddenActivityRow = (msg: AgentWidgetMessage): boolean =>
+      (msg.variant === "tool" && !showToolCalls) ||
+      (msg.variant === "reasoning" && !showReasoning);
     const hasStreamingAssistantMessage = messages.some(
-      (msg) => msg.role === "assistant" && msg.streaming
+      (msg) => msg.role === "assistant" && msg.streaming && !isHiddenActivityRow(msg)
     );
 
     // Also check if there's a recently completed assistant message (streaming just ended)
     // This prevents flicker when the message completes but isStreaming hasn't updated yet
     // Approval-variant messages are UI controls, not content: exclude them so the typing
-    // indicator still shows while the agent resumes after approval
-    const lastMessage = messages[messages.length - 1];
-    const hasRecentAssistantResponse = lastMessage?.role === "assistant" && !lastMessage.streaming && lastMessage.variant !== "approval";
+    // indicator still shows while the agent resumes after approval. Hidden tool/reasoning
+    // rows are skipped for the same reason (the gap between a tool finishing and the
+    // model's next text would otherwise show nothing), and a hidden row *after* the
+    // last visible message means the agent has moved on to more work, so that visible
+    // message is not the turn's final response.
+    let lastVisibleIndex = messages.length - 1;
+    while (lastVisibleIndex >= 0 && isHiddenActivityRow(messages[lastVisibleIndex])) {
+      lastVisibleIndex--;
+    }
+    const lastMessage = lastVisibleIndex >= 0 ? messages[lastVisibleIndex] : undefined;
+    const hasHiddenActivityAfterLastVisible = lastVisibleIndex < messages.length - 1;
+    const hasRecentAssistantResponse =
+      lastMessage?.role === "assistant" &&
+      !lastMessage.streaming &&
+      lastMessage.variant !== "approval" &&
+      !hasHiddenActivityAfterLastVisible;
 
     if (isStreaming && messages.some((msg) => msg.role === "user") && !hasStreamingAssistantMessage && !hasRecentAssistantResponse) {
       // Get loading indicator using priority chain: plugin -> config -> default
