@@ -1,9 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { createTheme, themeToCssVariables } from './tokens';
+import {
+  createTheme,
+  resolveThemeDefaults,
+  resolveThemeDefaultsVersion,
+  themeToCssVariables,
+} from './tokens';
 import type { DeepPartial, PersonaTheme } from '../types/theme';
 
 const vars = (override: DeepPartial<PersonaTheme>): Record<string, string> =>
   themeToCssVariables(createTheme(override, { validate: false }));
+
+describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
+  'theme defaults ($v5Defaults)',
+  ({ v5Defaults }) => {
+    it('resolves an explicit overlay version while preserving explicit token precedence', () => {
+      const future = { v5Defaults };
+      expect(resolveThemeDefaultsVersion(future)).toBe(v5Defaults ? 'v5' : 'v4');
+      expect(resolveThemeDefaults(future).palette.colors.gray).toEqual(
+        resolveThemeDefaults().palette.colors.gray
+      );
+
+      const theme = createTheme(
+        { palette: { colors: { gray: { 500: '#123456' } } } },
+        { future, validate: false }
+      );
+      expect(theme.palette.colors.gray[500]).toBe('#123456');
+    });
+  }
+);
 
 const flatSurface = (surface: string): DeepPartial<PersonaTheme> => ({
   semantic: { colors: { surface, background: surface, container: surface } },

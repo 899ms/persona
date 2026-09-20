@@ -5,12 +5,38 @@ import {
   COMPONENT_SHAPE_SECTIONS,
   COMPONENTS_SECTIONS,
   CONFIGURE_SECTIONS,
+  getThemeEditorTabs,
   INTERFACE_ROLES_SECTION,
+  resolveEditorFieldDefault,
   STYLE_SECTIONS,
 } from "./sections";
+import { resolveDefaults } from "../defaults";
+import { resolveThemeDefaults } from "../utils/tokens";
 import { ALL_ROLES } from "./role-mappings";
 
 describe("theme editor scroll-to-bottom controls", () => {
+  it("resolves field hints from the selected shared defaults tree", () => {
+    const v4Tabs = getThemeEditorTabs();
+    const v5Tabs = getThemeEditorTabs({ v5Defaults: true });
+    const headerIcon = v4Tabs
+      .flatMap((tab) => tab.sections)
+      .flatMap((section) => section.fields)
+      .find((field) => field.path === "launcher.headerIconSize");
+
+    expect(headerIcon?.defaultValue).toBe(
+      resolveDefaults().launcher?.headerIconSize
+    );
+    expect(resolveEditorFieldDefault({
+      id: "theme-surface",
+      label: "Surface",
+      type: "token-ref",
+      path: "theme.semantic.colors.surface",
+    }, { v5Defaults: true })).toBe(
+      resolveThemeDefaults({ v5Defaults: true }).semantic.colors.surface
+    );
+    expect(v5Tabs).toEqual(v4Tabs);
+  });
+
   it("exposes clear style semantics and independent role width controls", () => {
     const section = CONFIGURE_SECTIONS.find((entry) => entry.id === "messages-layout");
     const fieldsByPath = new Map(

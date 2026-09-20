@@ -7,7 +7,7 @@
 import type { AgentWidgetConfig } from '../types';
 import type { AgentWidgetMessage } from '../types';
 import { createTheme } from '../utils/theme';
-import { DEFAULT_WIDGET_CONFIG } from '../defaults';
+import { resolveDefaults } from '../defaults';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -693,9 +693,13 @@ function buildPreviewBaseConfig(
   options: PreviewConfigOptions,
   shellModeOverride?: 'light' | 'dark'
 ): AgentWidgetConfig {
-  const theme = options.theme ? createTheme(options.theme, { validate: false }) : createTheme();
+  const defaults = resolveDefaults(options.config);
+  const future = options.config?.future;
+  const theme = options.theme
+    ? createTheme(options.theme, { validate: false, future })
+    : createTheme(undefined, { future });
   return {
-    ...DEFAULT_WIDGET_CONFIG,
+    ...defaults,
     ...options.config,
     theme,
     darkTheme: options.darkTheme,

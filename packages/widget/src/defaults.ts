@@ -99,7 +99,7 @@ export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
  * Default widget configuration
  * Single source of truth for all default values
  */
-export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
+export const DEFAULTS_BASE: Partial<AgentWidgetConfig> = {
   apiUrl: "https://api.runtype.com/api/chat/dispatch",
   // Client token mode defaults (optional, only used when clientToken is set)
   clientToken: undefined,
@@ -254,6 +254,29 @@ export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
   debug: false,
 };
 
+/** Version-specific defaults; V5 starts equal to V4 until its staged rollout. */
+export const DEFAULTS_V4: Partial<AgentWidgetConfig> = {};
+export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {};
+
+export type DefaultsVersion = "v4" | "v5";
+
+/** Shared by config, token, theme, and editor resolution. Only true opts in. */
+export function resolveDefaultsVersion(
+  config?: Pick<AgentWidgetConfig, "future">
+): DefaultsVersion {
+  return config?.future?.v5Defaults === true ? "v5" : "v4";
+}
+
+export function resolveDefaults(
+  config?: Pick<AgentWidgetConfig, "future">
+): Partial<AgentWidgetConfig> {
+  const overlay = resolveDefaultsVersion(config) === "v5" ? DEFAULTS_V5 : DEFAULTS_V4;
+  return deepMerge(DEFAULTS_BASE, overlay) as Partial<AgentWidgetConfig>;
+}
+
+/** Backward-compatible export of the legacy widget defaults. */
+export const DEFAULT_WIDGET_CONFIG = resolveDefaults();
+
 function mergeThemePartials(
   base: DeepPartial<PersonaTheme> | undefined,
   override: DeepPartial<PersonaTheme> | undefined
@@ -274,57 +297,58 @@ function mergeThemePartials(
 export function mergeWithDefaults(
   config?: Partial<AgentWidgetConfig>
 ): Partial<AgentWidgetConfig> {
-  if (!config) return DEFAULT_WIDGET_CONFIG;
+  const defaults = resolveDefaults(config);
+  if (!config) return defaults;
 
   return {
-    ...DEFAULT_WIDGET_CONFIG,
+    ...defaults,
     ...config,
-    theme: mergeThemePartials(DEFAULT_WIDGET_CONFIG.theme, config.theme),
-    darkTheme: mergeThemePartials(DEFAULT_WIDGET_CONFIG.darkTheme, config.darkTheme),
+    theme: mergeThemePartials(defaults.theme, config.theme),
+    darkTheme: mergeThemePartials(defaults.darkTheme, config.darkTheme),
     launcher: {
-      ...DEFAULT_WIDGET_CONFIG.launcher,
+      ...defaults.launcher,
       ...config.launcher,
       dock: {
-        ...DEFAULT_WIDGET_CONFIG.launcher?.dock,
+        ...defaults.launcher?.dock,
         ...config.launcher?.dock,
       },
       clearChat: {
-        ...DEFAULT_WIDGET_CONFIG.launcher?.clearChat,
+        ...defaults.launcher?.clearChat,
         ...config.launcher?.clearChat,
       },
     },
     tooltip: {
-      ...DEFAULT_WIDGET_CONFIG.tooltip,
+      ...defaults.tooltip,
       ...config.tooltip,
     },
     copy: {
-      ...DEFAULT_WIDGET_CONFIG.copy,
+      ...defaults.copy,
       ...config.copy,
     },
     sendButton: {
-      ...DEFAULT_WIDGET_CONFIG.sendButton,
+      ...defaults.sendButton,
       ...config.sendButton,
     },
     statusIndicator: {
-      ...DEFAULT_WIDGET_CONFIG.statusIndicator,
+      ...defaults.statusIndicator,
       ...config.statusIndicator,
     },
     voiceRecognition: {
-      ...DEFAULT_WIDGET_CONFIG.voiceRecognition,
+      ...defaults.voiceRecognition,
       ...config.voiceRecognition,
     },
     features: (() => {
-      const da = DEFAULT_WIDGET_CONFIG.features?.artifacts;
+      const da = defaults.features?.artifacts;
       const ca = config.features?.artifacts;
-      const dsb = DEFAULT_WIDGET_CONFIG.features?.scrollToBottom;
+      const dsb = defaults.features?.scrollToBottom;
       const csb = config.features?.scrollToBottom;
-      const dsc = DEFAULT_WIDGET_CONFIG.features?.scrollBehavior;
+      const dsc = defaults.features?.scrollBehavior;
       const csc = config.features?.scrollBehavior;
-      const dsa = DEFAULT_WIDGET_CONFIG.features?.streamAnimation;
+      const dsa = defaults.features?.streamAnimation;
       const csa = config.features?.streamAnimation;
-      const dau = DEFAULT_WIDGET_CONFIG.features?.askUserQuestion;
+      const dau = defaults.features?.askUserQuestion;
       const cau = config.features?.askUserQuestion;
-      const dh = DEFAULT_WIDGET_CONFIG.features?.history;
+      const dh = defaults.features?.history;
       const ch = config.features?.history;
       const mergedArtifacts =
         da === undefined && ca === undefined
@@ -381,14 +405,14 @@ export function mergeWithDefaults(
               },
             };
       return {
-        ...DEFAULT_WIDGET_CONFIG.features,
+        ...defaults.features,
         ...config.features,
         toolCallDisplay: {
-          ...DEFAULT_WIDGET_CONFIG.features?.toolCallDisplay,
+          ...defaults.features?.toolCallDisplay,
           ...config.features?.toolCallDisplay,
         },
         reasoningDisplay: {
-          ...DEFAULT_WIDGET_CONFIG.features?.reasoningDisplay,
+          ...defaults.features?.reasoningDisplay,
           ...config.features?.reasoningDisplay,
         },
         ...(mergedScrollToBottom !== undefined ? { scrollToBottom: mergedScrollToBottom } : {}),
@@ -399,45 +423,45 @@ export function mergeWithDefaults(
         ...(mergedHistory !== undefined ? { history: mergedHistory } : {}),
       };
     })(),
-    suggestionChips: config.suggestionChips ?? DEFAULT_WIDGET_CONFIG.suggestionChips,
+    suggestionChips: config.suggestionChips ?? defaults.suggestionChips,
     suggestionChipsConfig: {
-      ...DEFAULT_WIDGET_CONFIG.suggestionChipsConfig,
+      ...defaults.suggestionChipsConfig,
       ...config.suggestionChipsConfig,
     },
     layout: {
-      ...DEFAULT_WIDGET_CONFIG.layout,
+      ...defaults.layout,
       ...config.layout,
       header: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.header,
+        ...defaults.layout?.header,
         ...config.layout?.header,
       },
       messages: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.messages,
+        ...defaults.layout?.messages,
         ...config.layout?.messages,
         avatar: {
-          ...DEFAULT_WIDGET_CONFIG.layout?.messages?.avatar,
+          ...defaults.layout?.messages?.avatar,
           ...config.layout?.messages?.avatar,
         },
         timestamp: {
-          ...DEFAULT_WIDGET_CONFIG.layout?.messages?.timestamp,
+          ...defaults.layout?.messages?.timestamp,
           ...config.layout?.messages?.timestamp,
         },
       },
       slots: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.slots,
+        ...defaults.layout?.slots,
         ...config.layout?.slots,
       },
     },
     markdown: {
-      ...DEFAULT_WIDGET_CONFIG.markdown,
+      ...defaults.markdown,
       ...config.markdown,
       options: {
-        ...DEFAULT_WIDGET_CONFIG.markdown?.options,
+        ...defaults.markdown?.options,
         ...config.markdown?.options,
       },
     },
     messageActions: {
-      ...DEFAULT_WIDGET_CONFIG.messageActions,
+      ...defaults.messageActions,
       ...config.messageActions,
     },
   };

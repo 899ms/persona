@@ -7,7 +7,7 @@
  *   node scripts/defaults-screenshots.mjs capture after dist
  *   node scripts/defaults-screenshots.mjs compare
  *
- * Captures only legacy defaults until `future.v5Defaults` exists.  The page
+ * Captures both defaults states against the saved baseline. The page
  * intentionally avoids suggestion chips because PR 1 has an approved
  * platform-font difference for those chips.
  */
@@ -58,6 +58,7 @@ function html() {
 const query = new URLSearchParams(location.search);
 const scenario = query.get('scenario');
 const scheme = query.get('scheme');
+const v5Defaults = query.get('defaults') === 'v5';
 document.body.dataset.scheme = scheme;
 const host = document.querySelector('#host');
 if (scenario === 'inline') host.className = 'inline';
@@ -68,7 +69,7 @@ if (scenario === 'floating-closed') launcher.autoExpand = false;
 if (scenario === 'inline' || scenario === 'fullscreen') { launcher.enabled = false; launcher.fullHeight = true; }
 if (scenario === 'docked') { launcher.mountMode = 'docked'; launcher.autoExpand = true; launcher.dock = { side: 'right', width: '420px', reveal: 'overlay', animate: false }; }
 const controller = AgentWidget.initAgentWidget({ target: host, config: {
-  apiUrl: '/dispatch', colorScheme: scheme, launcher, persistState: false, suggestionChips: []
+  apiUrl: '/dispatch', colorScheme: scheme, launcher, persistState: false, future: { v5Defaults }, suggestionChips: []
 } });
 const stamp = (message) => ({ ...message, createdAt: '2026-01-01T12:00:00.000Z', streaming: false });
 function seedText() {
@@ -123,7 +124,7 @@ async function capture(label, dist) {
   const port = server.address().port;
   const browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   try {
-    for (const scheme of schemes) for (const scenario of scenarios) {
+    for (const defaults of ["v4", "v5"]) for (const scheme of schemes) for (const scenario of scenarios) {
       const mobile = scenario === "mobile";
       const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: scheme });
       const pageErrors = [];
@@ -134,7 +135,7 @@ async function capture(label, dist) {
         performance.now = () => 0;
         Math.random = () => 0.5;
       });
-      await page.goto(`http://127.0.0.1:${port}/?scenario=${scenario}&scheme=${scheme}`, { waitUntil: "networkidle" });
+      await page.goto(`http://127.0.0.1:${port}/?scenario=${scenario}&scheme=${scheme}&defaults=${defaults}`, { waitUntil: "networkidle" });
       await page.waitForFunction(() => window.__personaScreenshotReady === true);
       await page.waitForTimeout(700); // lazy approval chunk adoption / final DOM paint
       const expected = scenario === "floating-closed" ? ".persona-launcher-surface button" :
@@ -149,14 +150,14 @@ async function capture(label, dist) {
         throw new Error(`Scenario ${scheme}/${scenario} did not render ${expected}: ${await page.locator("[data-persona-root]").innerText()}\n${error}`);
       }
       if (pageErrors.length) throw pageErrors[0];
-      await page.screenshot({ path: join(target, `${scheme}-${scenario}.png`), fullPage: true });
+      await page.screenshot({ path: join(target, `${defaults}-${scheme}-${scenario}.png`), fullPage: true });
       await page.close();
     }
   } finally {
     await browser.close();
     await new Promise((done) => server.close(done));
   }
-  console.log(`Captured ${scenarios.length * schemes.length} screenshots in ${target}`);
+  console.log(`Captured ${2 * scenarios.length * schemes.length} screenshots in ${target}`);
 }
 
 async function pngs(directory) {

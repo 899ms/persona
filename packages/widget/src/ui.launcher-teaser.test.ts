@@ -60,6 +60,31 @@ describe("launcher teaser", () => {
     controller.destroy();
   });
 
+  it("keeps the defaults-version root attribute in parity through critical-launcher handoff", () => {
+    const prefix = nextPrefix();
+    const config = {
+      apiUrl: "https://api.example.com/chat",
+      persistState: { keyPrefix: prefix },
+      future: { v5Defaults: false },
+    };
+    const host = createMount();
+    const controller = createAgentExperience(host, config);
+    const criticalTarget = createMount();
+    const critical = mountCriticalLauncher({ target: criticalTarget, config, onOpen: () => {} });
+
+    expect(host.getAttribute("data-persona-defaults")).toBe("v4");
+    expect(critical.root.getAttribute("data-persona-defaults")).toBe("v4");
+
+    controller.update({ future: { v5Defaults: true } });
+    critical.update({ ...config, future: { v5Defaults: true } });
+
+    expect(host.getAttribute("data-persona-defaults")).toBe("v5");
+    expect(critical.root.getAttribute("data-persona-defaults")).toBe("v5");
+
+    critical.destroy();
+    controller.destroy();
+  });
+
   it("live-updates the teaser through controller.update()", () => {
     const prefix = nextPrefix();
     const host = createMount();

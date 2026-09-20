@@ -46,6 +46,8 @@ export {
   STREAM_AND_ARTIFACTS_SUB_GROUP,
   ARTIFACT_DISPLAY_PREFERENCE_SECTION,
   ALL_TABS,
+  getThemeEditorTabs,
+  resolveEditorFieldDefault,
   scopeSection,
   findSection,
 } from './sections';

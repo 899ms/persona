@@ -1124,4 +1124,6 @@ export interface CreateThemeOptions {
   plugins?: PersonaThemePlugin[];
   validate?: boolean;
   extend?: PersonaTheme;
+  /** Selects the defaults overlay; explicit theme tokens always take precedence. */
+  future?: { v5Defaults?: boolean };
 }

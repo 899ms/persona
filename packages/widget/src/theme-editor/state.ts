@@ -3,7 +3,7 @@
 import type { AgentWidgetConfig } from '../types';
 import type { PersonaTheme } from '../types/theme';
 import { createTheme } from '../utils/theme';
-import { DEFAULT_WIDGET_CONFIG } from '../defaults';
+import { resolveDefaults } from '../defaults';
 import type { ConfiguratorSnapshot, ConfigChangeListener } from './types';
 
 // ─── Dot-path utilities ─────────────────────────────────────────
@@ -72,11 +72,15 @@ export class ThemeEditorState {
     options?: { mergeDefaults?: boolean }
   ) {
     const mergeDefaults = options?.mergeDefaults ?? true;
+    const defaults = resolveDefaults(initialConfig);
     this.config = (mergeDefaults
-      ? { ...DEFAULT_WIDGET_CONFIG, ...initialConfig }
-      : (initialConfig ?? DEFAULT_WIDGET_CONFIG)
+      ? { ...defaults, ...initialConfig }
+      : (initialConfig ?? defaults)
     ) as AgentWidgetConfig;
-    this.theme = createTheme(initialTheme, { validate: false });
+    this.theme = createTheme(initialTheme, {
+      validate: false,
+      future: this.config.future,
+    });
     this.syncThemeIntoConfig();
     this.pushHistorySnapshot(this.exportSnapshot(), true);
   }
@@ -122,7 +126,7 @@ export class ThemeEditorState {
       this.syncThemeIntoConfig();
     } else if (path.startsWith('darkTheme.')) {
       const themePath = path.replace('darkTheme.', '');
-      const dark = this.config.darkTheme ?? createTheme();
+      const dark = this.config.darkTheme ?? createTheme(undefined, { future: this.config.future });
       this.config = {
         ...this.config,
         darkTheme: setByPath(dark, themePath, value) as AgentWidgetConfig['darkTheme'],
@@ -170,7 +174,7 @@ export class ThemeEditorState {
         themeChanged = true;
       } else if (path.startsWith('darkTheme.')) {
         const themePath = path.replace('darkTheme.', '');
-        const dark = this.config.darkTheme ?? createTheme();
+        const dark = this.config.darkTheme ?? createTheme(undefined, { future: this.config.future });
         this.config = {
           ...this.config,
           darkTheme: setByPath(dark, themePath, value) as AgentWidgetConfig['darkTheme'],
@@ -222,20 +226,24 @@ export class ThemeEditorState {
       const config = (parsed.config ?? this.config) as AgentWidgetConfig;
       const theme = createTheme(
         (parsed.theme ?? this.theme) as Partial<PersonaTheme>,
-        { validate: false }
+        { validate: false, future: config.future }
       );
       this.setFullConfig(config, theme);
       return;
     }
 
-    const theme = createTheme(parsed as Partial<PersonaTheme>, { validate: false });
+    const theme = createTheme(parsed as Partial<PersonaTheme>, { validate: false, future: this.config.future });
     this.setTheme(theme);
   }
 
   /** Reset to defaults */
   resetToDefaults(): void {
-    this.config = { ...DEFAULT_WIDGET_CONFIG } as AgentWidgetConfig;
-    this.theme = createTheme();
+    const future = this.config.future;
+    this.config = {
+      ...resolveDefaults({ future }),
+      ...(future ? { future } : {}),
+    } as AgentWidgetConfig;
+    this.theme = createTheme(undefined, { future: this.config.future });
     this.syncThemeIntoConfig();
     this.history = [];
     this.historyIndex = -1;
@@ -336,7 +344,7 @@ export class ThemeEditorState {
   private restoreSnapshot(snapshot: ConfiguratorSnapshot): void {
     this.suppressHistory = true;
     this.config = snapshot.config as unknown as AgentWidgetConfig;
-    this.theme = createTheme(snapshot.theme, { validate: false });
+    this.theme = createTheme(snapshot.theme, { validate: false, future: this.config.future });
     this.syncThemeIntoConfig();
     this.suppressHistory = false;
     this.notifyListeners();

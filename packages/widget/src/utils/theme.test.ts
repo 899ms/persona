@@ -1249,6 +1249,24 @@ describe('theme utils', () => {
     expect(el.getAttribute('data-persona-color-scheme')).toBe('dark');
   });
 
+  it.each([{ v5Defaults: false }, { v5Defaults: true }])(
+    'threads future.v5Defaults=%s through active theme resolution and root state',
+    (future) => {
+      const config = {
+        colorScheme: 'dark' as const,
+        future,
+        theme: { palette: { colors: { gray: { 500: '#123456' } } } },
+      };
+      expect(getActiveTheme(config).palette.colors.gray[500]).toBe('#123456');
+
+      const el = document.createElement('div');
+      applyThemeVariables(el, config);
+      expect(el.getAttribute('data-persona-defaults')).toBe(
+        future.v5Defaults ? 'v5' : 'v4'
+      );
+    }
+  );
+
   it('maps components.code.background to --persona-code-bg', () => {
     const theme = createTheme({
       components: { code: { background: '#fafafa' } },

@@ -5,7 +5,8 @@
  * out of the IIFE widget bundle. Intended for AI/MCP tool consumption.
  */
 
-import { DEFAULT_PALETTE } from './utils/tokens'
+import { resolveThemeDefaults, resolveThemeDefaultsVersion } from './utils/tokens'
+import { resolveDefaults, resolveDefaultsVersion } from './defaults'
 import type { DeepPartial, PersonaTheme } from './types/theme'
 
 // ---------------------------------------------------------------------------
@@ -466,11 +467,16 @@ export const THEME_EXAMPLES: Record<string, ThemeExample> = {
  * Returns token system docs, the default color palette and radius scale,
  * example themes, and a list of SDK-bundled presets.
  */
-export function getThemeReference() {
+export function getThemeReference(future?: { v5Defaults?: boolean }) {
+  const themeDefaults = resolveThemeDefaults(future)
+  const defaults = resolveDefaults({ future })
   return {
     tokenDocs: THEME_TOKEN_DOCS,
-    defaultColorPalette: DEFAULT_PALETTE.colors,
-    defaultRadius: DEFAULT_PALETTE.radius,
+    defaultsVersion: resolveDefaultsVersion({ future }),
+    themeDefaultsVersion: resolveThemeDefaultsVersion(future),
+    defaultColorPalette: themeDefaults.palette.colors,
+    defaultRadius: themeDefaults.palette.radius,
+    defaultLauncher: defaults.launcher,
     examples: THEME_EXAMPLES,
     sdkPresets: ['shop', 'minimal', 'fullscreen'],
   }

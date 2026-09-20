@@ -6910,6 +6910,15 @@ export type AgentWidgetLoadingIndicatorConfig = {
 };
 
 export type AgentWidgetConfig = {
+  /** Opt in to upcoming major-version defaults without changing explicit settings. */
+  future?: {
+    /**
+     * Use the v5 default styling as it rolls out in 4.x. Every affected setting
+     * remains independently configurable. Explicit options and theme tokens win.
+     * @default false
+     */
+    v5Defaults?: boolean;
+  };
   apiUrl?: string;
   flowId?: string;
   /**

@@ -588,6 +588,13 @@ function appendSerializableObjectBlock(
   lines.push(`${indent}},`);
 }
 
+/** Preserve an explicitly authored defaults-version opt-in in every snippet. */
+function appendFutureDefaultsConfig(lines: string[], config: any, indent: string): void {
+  if (config.future?.v5Defaults !== undefined) {
+    lines.push(`${indent}future: { v5Defaults: ${config.future.v5Defaults === true} },`);
+  }
+}
+
 /**
  * Resolve the mount-target selector for a single-quoted JS string context.
  * Defaults to `body` and escapes backslashes / single quotes so an arbitrary
@@ -647,6 +654,7 @@ function generateESMCode(config: any, options?: CodeGeneratorOptions): string {
   if (config.target) lines.push(`    target: "${config.target}",`);
   if (config.flowId) lines.push(`    flowId: "${config.flowId}",`);
   if (shouldEmitParserType) lines.push(`    parserType: "${parserType}",`);
+  appendFutureDefaultsConfig(lines, config, "    ");
 
   if (config.theme && typeof config.theme === "object" && Object.keys(config.theme).length > 0) {
     appendSerializableObjectBlock(lines, "theme", config.theme as Record<string, unknown>, "    ");
@@ -797,6 +805,7 @@ function generateReactComponentCode(config: any, options?: CodeGeneratorOptions)
   if (config.target) lines.push(`        target: "${config.target}",`);
   if (config.flowId) lines.push(`        flowId: "${config.flowId}",`);
   if (shouldEmitParserType) lines.push(`        parserType: "${parserType}",`);
+  appendFutureDefaultsConfig(lines, config, "        ");
 
   if (config.theme && typeof config.theme === "object" && Object.keys(config.theme).length > 0) {
     appendSerializableObjectBlock(lines, "theme", config.theme as Record<string, unknown>, "        ");
@@ -1064,6 +1073,7 @@ function generateReactAdvancedCode(config: any, options?: CodeGeneratorOptions):
   if (config.agentId) lines.push(`        agentId: "${config.agentId}",`);
   if (config.target) lines.push(`        target: "${config.target}",`);
   if (config.flowId) lines.push(`        flowId: "${config.flowId}",`);
+  appendFutureDefaultsConfig(lines, config, "        ");
 
   if (config.theme && typeof config.theme === "object" && Object.keys(config.theme).length > 0) {
     appendSerializableObjectBlock(lines, "theme", config.theme as Record<string, unknown>, "        ");
@@ -1324,6 +1334,9 @@ function buildSerializableConfig(config: any): Record<string, any> {
   if (config.target) serializableConfig.target = config.target;
   if (config.flowId) serializableConfig.flowId = config.flowId;
   if (shouldEmitParserType) serializableConfig.parserType = parserType;
+  if (config.future?.v5Defaults !== undefined) {
+    serializableConfig.future = { v5Defaults: config.future.v5Defaults === true };
+  }
   if (config.theme) serializableConfig.theme = config.theme;
   if (config.launcher) serializableConfig.launcher = config.launcher;
   if (config.copy) serializableConfig.copy = config.copy;
@@ -1477,6 +1490,7 @@ function generateScriptManualCode(config: any, options?: CodeGeneratorOptions): 
   if (config.target) lines.push(`      target: "${config.target}",`);
   if (config.flowId) lines.push(`      flowId: "${config.flowId}",`);
   if (shouldEmitParserType) lines.push(`      parserType: "${parserType}",`);
+  appendFutureDefaultsConfig(lines, config, "      ");
 
   if (config.theme && typeof config.theme === "object" && Object.keys(config.theme).length > 0) {
     appendSerializableObjectBlock(lines, "theme", config.theme as Record<string, unknown>, "      ");

@@ -11,6 +11,7 @@ import type {
 import {
   DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
   DEFAULT_FLOATING_LAUNCHER_WIDTH,
+  resolveDefaultsVersion,
 } from '../defaults';
 
 // Detached/docked panel defaults, shared by the panel token defaults, the alias
@@ -25,7 +26,7 @@ const spacing = (() => {
   return s as Record<0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 16 | 20 | 24 | 32 | 40 | 48 | 56 | 64, string>;
 })();
 
-export const DEFAULT_PALETTE = {
+const DEFAULT_PALETTE_BASE = {
   colors: {
     primary: {
       50: '#ffffff',
@@ -209,7 +210,7 @@ export const DEFAULT_PALETTE = {
   },
 };
 
-export const DEFAULT_SEMANTIC: SemanticTokens = {
+const DEFAULT_SEMANTIC_BASE: SemanticTokens = {
   colors: {
     primary: 'palette.colors.primary.500',
     secondary: 'palette.colors.secondary.500',
@@ -257,7 +258,7 @@ export const DEFAULT_SEMANTIC: SemanticTokens = {
   },
 };
 
-export const DEFAULT_COMPONENTS: ComponentTokens = {
+const DEFAULT_COMPONENTS_BASE: ComponentTokens = {
   button: {
     primary: {
       // Primary Actions role: solid primary
@@ -532,6 +533,45 @@ export const DEFAULT_COMPONENTS: ComponentTokens = {
   },
 };
 
+/**
+ * Defaults are shared first and overlaid by version.  The v5 overlays are
+ * deliberately value-identical in 4.x until their corresponding rollout PRs
+ * land, so selecting the flag is a no-op today without duplicating a full
+ * theme tree in the bundle.
+ */
+const DEFAULT_PALETTE_GRAY_V4 = DEFAULT_PALETTE_BASE.colors.gray;
+const DEFAULT_PALETTE_GRAY_V5 = DEFAULT_PALETTE_GRAY_V4;
+
+export const DEFAULT_PALETTE_V4 = {
+  ...DEFAULT_PALETTE_BASE,
+  colors: { ...DEFAULT_PALETTE_BASE.colors, gray: DEFAULT_PALETTE_GRAY_V4 },
+};
+export const DEFAULT_PALETTE_V5 = {
+  ...DEFAULT_PALETTE_BASE,
+  colors: { ...DEFAULT_PALETTE_BASE.colors, gray: DEFAULT_PALETTE_GRAY_V5 },
+};
+export const DEFAULT_PALETTE = DEFAULT_PALETTE_V4;
+
+export const DEFAULT_SEMANTIC_V4 = DEFAULT_SEMANTIC_BASE;
+export const DEFAULT_SEMANTIC_V5 = DEFAULT_SEMANTIC_V4;
+export const DEFAULT_SEMANTIC = DEFAULT_SEMANTIC_V4;
+
+export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
+export const DEFAULT_COMPONENTS_V5 = DEFAULT_COMPONENTS_V4;
+export const DEFAULT_COMPONENTS = DEFAULT_COMPONENTS_V4;
+
+export type ThemeDefaultsVersion = 'v4' | 'v5';
+
+export const resolveThemeDefaultsVersion = (future?: { v5Defaults?: boolean }): ThemeDefaultsVersion =>
+  resolveDefaultsVersion({ future });
+
+export const resolveThemeDefaults = (future?: { v5Defaults?: boolean }) => {
+  const version = resolveThemeDefaultsVersion(future);
+  return version === 'v5'
+    ? { palette: DEFAULT_PALETTE_V5, semantic: DEFAULT_SEMANTIC_V5, components: DEFAULT_COMPONENTS_V5 }
+    : { palette: DEFAULT_PALETTE_V4, semantic: DEFAULT_SEMANTIC_V4, components: DEFAULT_COMPONENTS_V4 };
+};
+
 export function resolveTokenValue(theme: PersonaTheme, path: string): string | undefined {
   if (
     !path.startsWith('palette.') &&
@@ -673,10 +713,11 @@ export function createTheme(
   userConfig?: DeepPartial<PersonaTheme>,
   options: CreateThemeOptions = {}
 ): PersonaTheme {
+  const defaults = resolveThemeDefaults(options.future);
   const baseTheme: PersonaTheme = {
-    palette: DEFAULT_PALETTE as PersonaTheme['palette'],
-    semantic: DEFAULT_SEMANTIC as PersonaTheme['semantic'],
-    components: DEFAULT_COMPONENTS as PersonaTheme['components'],
+    palette: defaults.palette as PersonaTheme['palette'],
+    semantic: defaults.semantic as PersonaTheme['semantic'],
+    components: defaults.components as PersonaTheme['components'],
   };
 
   let theme: PersonaTheme = {

@@ -226,6 +226,29 @@ describe("install.ts: deferred launcher path", () => {
 
     expect(initAgentWidget).toHaveBeenCalledTimes(1);
   });
+
+  it.each([false, true])("passes future.v5Defaults=%s through the deferred launcher handoff", async (v5Defaults) => {
+    markCssLoaded();
+    provideFullBundle();
+    provideLauncherBundle();
+
+    await install({
+      config: { apiUrl: "/api" },
+      future: { v5Defaults },
+    });
+    await flush();
+
+    expect(launcherMount).toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({ future: { v5Defaults } }),
+    }));
+
+    capturedOnOpen!();
+    await flush();
+
+    expect(initAgentWidget).toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({ future: { v5Defaults } }),
+    }));
+  });
 });
 
 describe("install.ts: eager path", () => {
