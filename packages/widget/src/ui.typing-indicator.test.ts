@@ -165,6 +165,12 @@ describe("standalone typing indicator with hidden activity rows", () => {
     return { mount, controller };
   };
 
+  // The session orders by createdAt first, then by its Date.now()-based
+  // sequence, so injected rows need both stamped in the future to sort after
+  // the user message the way real stream rows do.
+  const seq = (n: number) => Date.now() + 60_000 + n;
+  const at = (n: number) => new Date(seq(n)).toISOString();
+
   const injectTool = (
     controller: ReturnType<typeof createAgentExperience>,
     id: string,
@@ -177,7 +183,7 @@ describe("standalone typing indicator with hidden activity rows", () => {
         id,
         role: "assistant",
         content: "",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        createdAt: new Date(sequence).toISOString(),
         sequence,
         streaming: status !== "complete",
         variant: "tool",
@@ -198,7 +204,7 @@ describe("standalone typing indicator with hidden activity rows", () => {
         id,
         role: "assistant",
         content: "",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        createdAt: new Date(sequence).toISOString(),
         sequence,
         streaming: status !== "complete",
         variant: "reasoning",
@@ -210,9 +216,6 @@ describe("standalone typing indicator with hidden activity rows", () => {
   const typingIndicator = (mount: HTMLElement) =>
     mount.querySelector<HTMLElement>('[data-typing-indicator="true"]');
 
-  // Session sequences are Date.now()-based, so injected rows need sequences
-  // in the future to sort after the user message like real stream rows do.
-  const seq = (n: number) => Date.now() + 60_000 + n;
 
   it("keeps the dots while a hidden tool call is running", async () => {
     const { mount, controller } = await mountStreaming({
@@ -251,7 +254,7 @@ describe("standalone typing indicator with hidden activity rows", () => {
         id: "text-1",
         role: "assistant",
         content: "Let me look that up.",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        createdAt: at(1),
         sequence: seq(1),
         streaming: false,
       },
@@ -288,6 +291,42 @@ describe("standalone typing indicator with hidden activity rows", () => {
     controller.destroy();
   });
 
+  it("keeps the dots after a visible tool call is removed by completedVisibility", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: {
+        showToolCalls: true,
+        toolCallDisplay: { completedVisibility: "removed" },
+      },
+    });
+
+    injectTool(controller, "tool-1", "running", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).not.toBeNull();
+    expect(typingIndicator(mount)).toBeNull();
+
+    injectTool(controller, "tool-1", "complete", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).toBeNull();
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots after visible reasoning is removed by completedVisibility", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: {
+        showReasoning: true,
+        reasoningDisplay: { completedVisibility: "removed" },
+      },
+    });
+
+    injectReasoning(controller, "reason-1", "streaming", seq(1));
+    expect(typingIndicator(mount)).toBeNull();
+
+    injectReasoning(controller, "reason-1", "complete", seq(1));
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
   it("hides the dots once a real assistant message is streaming", async () => {
     const { mount, controller } = await mountStreaming({
       features: { showToolCalls: false },
@@ -300,7 +339,7 @@ describe("standalone typing indicator with hidden activity rows", () => {
         id: "text-1",
         role: "assistant",
         content: "Here you go",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        createdAt: at(2),
         sequence: seq(2),
         streaming: true,
       },

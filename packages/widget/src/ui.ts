@@ -6320,20 +6320,23 @@ export const createAgentExperience = (
     // reasoning removal, no threshold variant.
     const dropCompletedToolCalls =
       config.features?.toolCallDisplay?.completedVisibility === "removed";
-
-    messages.forEach((message) => {
+    /** A finished reasoning/tool row that `completedVisibility` removes from the transcript. */
+    const isDroppedCompletedRow = (message: AgentWidgetMessage): boolean => {
       if (
         message.variant === "reasoning" &&
-        message.reasoning?.status === "complete" &&
-        dropReasoningRow(message.reasoning)
+        message.reasoning?.status === "complete"
       ) {
-        return;
+        return dropReasoningRow(message.reasoning);
       }
-      if (
+      return (
         dropCompletedToolCalls &&
         message.variant === "tool" &&
         message.toolCall?.status === "complete"
-      ) {
+      );
+    };
+
+    messages.forEach((message) => {
+      if (isDroppedCompletedRow(message)) {
         return;
       }
       activeMessageIds.add(message.id);
@@ -7005,13 +7008,15 @@ export const createAgentExperience = (
     // Check for ANY streaming assistant message, even if empty (to avoid duplicate bubbles)
     //
     // Tool and reasoning rows hidden by `features.showToolCalls: false` /
-    // `features.showReasoning: false` never render, so they must not count as
+    // `features.showReasoning: false`, or removed once complete by their
+    // `completedVisibility` setting, never render, so they must not count as
     // "the assistant is already visibly responding": otherwise the transcript
     // goes blank for the whole tool phase. When those rows are shown, their own
     // bubble carries the loading animation and the standalone dots stay hidden.
     const isHiddenActivityRow = (msg: AgentWidgetMessage): boolean =>
       (msg.variant === "tool" && !showToolCalls) ||
-      (msg.variant === "reasoning" && !showReasoning);
+      (msg.variant === "reasoning" && !showReasoning) ||
+      isDroppedCompletedRow(msg);
     const hasStreamingAssistantMessage = messages.some(
       (msg) => msg.role === "assistant" && msg.streaming && !isHiddenActivityRow(msg)
     );
