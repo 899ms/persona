@@ -1,6 +1,7 @@
 import type { AgentWidgetConfig, AgentWidgetLauncherConfig } from "./types";
 import type { DeepPartial, PersonaTheme } from "./types/theme";
 import { deepMerge } from "./utils/deep-merge";
+import { inheritPanelAliasProvenance } from "./utils/panel-config";
 import {
   DEFAULT_TOOLTIP_DELAY_MS,
   DEFAULT_TOOLTIP_SKIP_DELAY_MS,
@@ -298,9 +299,9 @@ export function mergeWithDefaults(
   config?: Partial<AgentWidgetConfig>
 ): Partial<AgentWidgetConfig> {
   const defaults = resolveDefaults(config);
-  if (!config) return defaults;
+  if (!config) return inheritPanelAliasProvenance(defaults);
 
-  return {
+  return inheritPanelAliasProvenance({
     ...defaults,
     ...config,
     theme: mergeThemePartials(defaults.theme, config.theme),
@@ -464,5 +465,5 @@ export function mergeWithDefaults(
       ...defaults.messageActions,
       ...config.messageActions,
     },
-  };
+  }, config);
 }

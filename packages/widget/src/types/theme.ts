@@ -235,6 +235,15 @@ export interface PanelTokens extends ComponentTokenSet {
   inset?: string;
   /** Background of the region revealed behind a detached panel. */
   canvasBackground?: string;
+  /** Chrome defaults by rendered panel mode. */
+  modes?: Partial<Record<'floating' | 'inline' | 'sidebar' | 'docked' | 'mobile', {
+    /** Full border shorthand (for example, `"1px solid var(--persona-border)"`). */
+    border?: string;
+    /** Box-shadow token reference or raw CSS shadow. */
+    shadow?: string;
+    /** Corner radius token reference or raw CSS radius. */
+    borderRadius?: TokenReference<'radius'>;
+  }>>;
 }
 
 /** Per-element text styling shared by themable text surfaces. */
@@ -263,6 +272,10 @@ export interface HeaderTokens extends ComponentTokenSet {
    */
   border?: TokenReference<'color'>;
   borderRadius: TokenReference<'radius'>;
+  /** Standard-header padding. @default "20px 24px" */
+  padding?: string;
+  /** Minimal-header padding. Explicitly wins over `padding`. @default "16px 24px" */
+  minimalPadding?: string;
   /** Background of the rounded avatar tile next to the title (Lucide / emoji / image). */
   iconBackground: TokenReference<'color'>;
   /** Foreground (glyph stroke or emoji text) on the header avatar tile. */
@@ -484,6 +497,8 @@ export interface MessageGeometryTokens {
 }
 
 export interface MessageTokens {
+  /** Vertical gap between transcript turns. @default "12px" */
+  gap?: string;
   user: MessageGeometryTokens & {
     background: TokenReference<'color'>;
     text: TokenReference<'color'>;

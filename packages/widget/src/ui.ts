@@ -147,8 +147,9 @@ import {
 } from "./utils/context-mention-orchestrator";
 import type { MentionSubmitBundle } from "./utils/context-mention-manager";
 import { createTextPart, ALL_SUPPORTED_MIME_TYPES } from "./utils/content";
-import { applyThemeVariables, createThemeObserver, getActiveTheme } from "./utils/theme";
+import { applyThemeVariables, createThemeObserver, getActiveTheme, getColorScheme } from "./utils/theme";
 import { resolveTokenValue } from "./utils/tokens";
+import { deepMerge } from "./utils/deep-merge";
 import { Activity, Check, Copy } from "lucide";
 import { renderLucideIcon, onExtraIconsReady } from "./utils/icons";
 import { renderIconNode } from "./utils/icon-node";
@@ -222,6 +223,7 @@ import {
   attachHeaderToContainer,
   COMPOSER_BAR_CLEAR_CHAT_ICON_SIZE,
   COMPOSER_BAR_CLOSE_ICON_SIZE,
+  resolvePanelGeometry,
 } from "./components/panel";
 import { buildPillComposer } from "./components/pill-composer-builder";
 import {
@@ -324,12 +326,9 @@ import {
 } from "./utils/artifact-resize";
 import { loadFormsUi, getFormsUiSync } from "./forms-ui-loader";
 import { pluginRegistry } from "./plugins/registry";
-import {
-  DEFAULT_FLOATING_LAUNCHER_WIDTH,
-  DEFAULT_HEADER_ICON_SIZE,
-  mergeWithDefaults,
-} from "./defaults";
+import { DEFAULT_HEADER_ICON_SIZE, mergeWithDefaults } from "./defaults";
 import { mergeConfigUpdate } from "./utils/config-merge";
+import { getPanelAliasProvenance } from "./utils/panel-config";
 import { createEventBus } from "./utils/events";
 import {
   createActionManager,
@@ -3987,7 +3986,7 @@ export const createAgentExperience = (
       if (mobileFullscreen && ownerWindow.innerWidth <= mobileBreakpoint) return;
       if (!shouldExpandLauncherForArtifacts(config, launcherEnabled)) return;
 
-      const base = config.launcher?.width ?? config.launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
+      const base = resolvePanelGeometry(config).width;
       const expanded =
         config.features?.artifacts?.layout?.expandedPanelWidth ??
         "min(720px, calc(100vw - 24px))";
@@ -4086,7 +4085,14 @@ export const createAgentExperience = (
     const isInlineEmbed = config.launcher?.enabled === false;
     /** Detached appearance: inset card over a canvas instead of flush chrome. */
     const isDetached = config.launcher?.detachedPanel === true;
-    const panelPartial = config.theme?.components?.panel;
+    const lightPanelPartial = config.theme?.components?.panel;
+    const darkPanelPartial = config.darkTheme?.components?.panel;
+    const panelPartial: typeof lightPanelPartial = getColorScheme(config) === "dark"
+      ? deepMerge(
+          (lightPanelPartial ?? {}) as Record<string, unknown>,
+          (darkPanelPartial ?? {}) as Record<string, unknown>
+        ) as typeof lightPanelPartial
+      : lightPanelPartial;
     const activeTheme = getActiveTheme(config);
     const resolvePanelChrome = (raw: string | undefined, fallback: string): string => {
       if (raw == null || raw === "") return fallback;
@@ -4113,11 +4119,38 @@ export const createAgentExperience = (
     // Card chrome defaults (floating look): reused to restore detached chrome.
     // Defaults chain through the aliases themeToCssVariables emits so explicit
     // theme.components.panel overrides and these defaults never diverge.
-    const cardBorder = 'var(--persona-panel-border, 1px solid var(--persona-border))';
-    const cardShadow = 'var(--persona-panel-shadow, var(--persona-palette-shadows-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25)))';
-    const cardRadius = 'var(--persona-panel-radius, var(--persona-radius-xl, 0.75rem))';
+    const modeChrome = (
+      mode: "floating" | "inline" | "sidebar" | "docked" | "mobile",
+      field: "border" | "shadow" | "borderRadius",
+      fallback: string
+    ): string => `var(--persona-components-panel-modes-${mode}-${field}, ${fallback})`;
+    const configuredFloatingPanel = panelPartial?.modes?.floating;
+    const cardBorder = resolvePanelChrome(
+      configuredFloatingPanel?.border ?? panelPartial?.border,
+      modeChrome("floating", "border", 'var(--persona-panel-border, 1px solid var(--persona-border))')
+    );
+    const cardShadow = resolvePanelChrome(
+      configuredFloatingPanel?.shadow ?? panelPartial?.shadow,
+      modeChrome("floating", "shadow", 'var(--persona-panel-shadow, var(--persona-palette-shadows-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25)))')
+    );
+    const cardRadius = resolvePanelChrome(
+      configuredFloatingPanel?.borderRadius ?? panelPartial?.borderRadius,
+      modeChrome("floating", "borderRadius", 'var(--persona-panel-radius, var(--persona-radius-xl, 0.75rem))')
+    );
     /** Detached restores card chrome except when a host layout goes fullscreen. */
     const detachedCard = isDetached && !shouldGoFullscreen && !dockedHostFullscreen;
+    const panelMode = shouldGoFullscreen || dockedHostFullscreen
+      ? "mobile"
+      : detachedCard
+        ? "floating"
+        : dockedMode
+          ? "docked"
+          : sidebarMode
+            ? "sidebar"
+            : isInlineEmbed
+              ? "inline"
+              : "floating";
+    const configuredModePanel = panelPartial?.modes?.[panelMode];
     // Stamp reflects rendered chrome: cleared when a fullscreen host layout
     // suppresses the card, so the attribute never lies to the detached CSS.
     if (detachedCard) {
@@ -4135,7 +4168,7 @@ export const createAgentExperience = (
       : shouldGoFullscreen
         ? 'none'
         : sidebarMode
-          ? (isLeftSidebar ? 'var(--persona-palette-shadows-sidebar-left, 2px 0 12px rgba(0, 0, 0, 0.08))' : 'var(--persona-palette-shadows-sidebar-right, -2px 0 12px rgba(0, 0, 0, 0.08))')
+          ? (isLeftSidebar ? '2px 0 12px rgba(0, 0, 0, 0.08)' : '-2px 0 12px rgba(0, 0, 0, 0.08)')
           // Flush inline embeds fill their container: no elevation by default
           // (detachedPanel or components.panel.shadow opts back in).
           : isInlineEmbed ? 'none' : cardShadow;
@@ -4149,9 +4182,18 @@ export const createAgentExperience = (
       : (sidebarMode || shouldGoFullscreen) ? '0' : cardRadius;
 
     // Apply theme overrides or defaults (components.panel.*)
-    const panelBorder = resolvePanelChrome(panelPartial?.border, defaultPanelBorder);
-    const panelShadow = resolvePanelChrome(panelPartial?.shadow, defaultPanelShadow);
-    const panelBorderRadius = resolvePanelChrome(panelPartial?.borderRadius, defaultPanelBorderRadius);
+    const panelBorder = resolvePanelChrome(
+      configuredModePanel?.border ?? panelPartial?.border,
+      modeChrome(panelMode, "border", defaultPanelBorder)
+    );
+    const panelShadow = resolvePanelChrome(
+      configuredModePanel?.shadow ?? panelPartial?.shadow,
+      modeChrome(panelMode, "shadow", defaultPanelShadow)
+    );
+    const panelBorderRadius = resolvePanelChrome(
+      configuredModePanel?.borderRadius ?? panelPartial?.borderRadius,
+      modeChrome(panelMode, "borderRadius", defaultPanelBorderRadius)
+    );
 
     // Split chrome: 'welded' folds the card border onto the outer panel so it
     // wraps both columns as one card (shadow/radius already on the panel);
@@ -4195,7 +4237,8 @@ export const createAgentExperience = (
     // Flush fills the container flush, so the outer panel squares off by default;
     // the pane keeps its own rounded radius. An explicit panel.borderRadius wins.
     const panelRadiusExplicit =
-      panelPartial?.borderRadius != null && panelPartial.borderRadius !== '';
+      (configuredModePanel?.borderRadius != null && configuredModePanel.borderRadius !== '') ||
+      (panelPartial?.borderRadius != null && panelPartial.borderRadius !== '');
     const appliedPanelRadius =
       chatFlush && !panelRadiusExplicit ? '0' : panelBorderRadius;
 
@@ -4320,15 +4363,14 @@ export const createAgentExperience = (
     }
 
     // Re-apply panel width/maxWidth from initial setup
-    const launcherWidth = config?.launcher?.width ?? config?.launcherWidth;
-    const width = launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
+    const geometry = resolvePanelGeometry(config);
     if (!sidebarMode && !dockedMode) {
       if (isInlineEmbed && fullHeight) {
         panel.style.width = "100%";
         panel.style.maxWidth = "100%";
       } else {
-        panel.style.width = width;
-        panel.style.maxWidth = width;
+        panel.style.width = geometry.width;
+        panel.style.maxWidth = geometry.maxWidth;
       }
     } else if (dockedMode) {
       const dockReveal = resolveDockConfig(config).reveal;
@@ -4378,7 +4420,9 @@ export const createAgentExperience = (
       weldedOuterRadius = null;
     }
 
-    if (dockedMode && !shouldGoFullscreen && !detachedCard && !detachedSplitActive && !weldedSplitActive && panelPartial?.border === undefined) {
+    const panelBorderExplicit =
+      configuredModePanel?.border != null || panelPartial?.border != null;
+    if (dockedMode && !shouldGoFullscreen && !detachedCard && !detachedSplitActive && !weldedSplitActive && !panelBorderExplicit) {
       container.style.border = 'none';
       const dockSide = resolveDockConfig(config).side;
       if (dockSide === 'right') {
@@ -4392,7 +4436,7 @@ export const createAgentExperience = (
     // mode resolves its border to none, so add the dock-facing hairline there so
     // the split still separates from the host page. Mirrors the flush block's
     // side choice (right dock => left edge faces the page).
-    if (dockedMode && !shouldGoFullscreen && weldedSplitActive && panelPartial?.border === undefined) {
+    if (dockedMode && !shouldGoFullscreen && weldedSplitActive && !panelBorderExplicit) {
       const dockSide = resolveDockConfig(config).side;
       if (dockSide === 'right') {
         panel.style.borderLeft = '1px solid var(--persona-border)';
@@ -4481,7 +4525,9 @@ export const createAgentExperience = (
 
     // Apply sidebar-specific styles
     if (sidebarMode) {
-      const sidebarWidth = config.launcher?.sidebarWidth ?? '420px';
+      const sidebarWidth = getPanelAliasProvenance(config).sidebarWidth
+        ? config.launcher?.sidebarWidth ?? "420px"
+        : resolveTokenValue(getActiveTheme(config), "components.panel.width") ?? "420px";
 
       // Wrapper - fixed position. Detached insets the card off the edges and
       // shrinks its height by the inset on both ends; flush hugs the edges.
@@ -4635,12 +4681,9 @@ export const createAgentExperience = (
     const mobileFullscreen = config.launcher?.mobileFullscreen ?? true;
     const mobileBreakpoint = config.launcher?.mobileBreakpoint ?? 640;
     if (mobileFullscreen && ownerWindow.innerWidth <= mobileBreakpoint) return;
-    const viewportHeight = ownerWindow.innerHeight;
-    const verticalMargin = 64; // leave space for launcher's offset
-    const heightOffset = config.launcher?.heightOffset ?? 0;
-    const available = Math.max(200, viewportHeight - verticalMargin);
-    const clamped = Math.min(640, available);
-    panel.style.height = `${Math.max(200, clamped - heightOffset)}px`;
+    const geometry = resolvePanelGeometry(config);
+    panel.style.height = geometry.height;
+    panel.style.maxHeight = geometry.maxHeight;
   };
   applyFullHeightStyles();
   // Apply theme variables after applyFullHeightStyles since it resets mount.style.cssText
@@ -12912,10 +12955,9 @@ export const createAgentExperience = (
 
       // In sidebar/fullHeight mode, don't override the width - it's handled by applyFullHeightStyles
       if (!sidebarMode && !dockedMode) {
-        const launcherWidth = config?.launcher?.width ?? config?.launcherWidth;
-        const width = launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
-        panel.style.width = width;
-        panel.style.maxWidth = width;
+        const geometry = resolvePanelGeometry(config);
+        panel.style.width = geometry.width;
+        panel.style.maxWidth = geometry.maxWidth;
       }
       applyLauncherArtifactPanelWidth();
 

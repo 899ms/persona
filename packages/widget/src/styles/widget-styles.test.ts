@@ -189,6 +189,25 @@ describe("suggestion interaction styles", () => {
   });
 });
 
+describe("collapsible widget chrome styles", () => {
+  it("uses prefixed aliases while retaining each legacy alias and literal fallback", () => {
+    const expectedDeclarations: Array<[string, number]> = [
+      ["var(--persona-cw-border, var(--cw-border, #e5e7eb))", 2],
+      ["var(--persona-cw-container, var(--cw-container, #f9fafb))", 1],
+      ["var(--persona-cw-surface, var(--cw-surface, #ffffff))", 2],
+      ["var(--persona-cw-border, var(--cw-border, #f1f5f9))", 1],
+      ["var(--persona-cw-container, var(--cw-container, #f8fafc))", 1],
+      ["var(--persona-cw-border, var(--cw-border, #d1d5db))", 1],
+      ["var(--persona-cw-surface, var(--cw-surface, #fff))", 2],
+    ];
+
+    for (const [declaration, count] of expectedDeclarations) {
+      expect(widgetCss).toContain(declaration);
+      expect(widgetCss.split(declaration).length - 1).toBe(count);
+    }
+  });
+});
+
 describe("composer spacing styles", () => {
   it("themes the composer form padding and gap with utility-matching fallbacks", () => {
     const selector =

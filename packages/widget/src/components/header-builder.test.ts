@@ -8,6 +8,15 @@ import {
 import { buildHeader } from "./header-builder";
 
 describe("buildHeader tooltips", () => {
+  it.each([{ v5Defaults: false }, { v5Defaults: true }])(
+    "uses the standard padding token under v5Defaults=%s",
+    (future) => {
+      const { header } = buildHeader({ config: { future } as any });
+      expect(header.style.padding).toBe(
+        "var(--persona-components-header-padding, 20px 24px)"
+      );
+    }
+  );
   it("uses the shared launcher icon default", () => {
     const { iconHolder } = buildHeader({});
 

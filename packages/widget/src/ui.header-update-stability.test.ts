@@ -94,6 +94,31 @@ describe("header stability across unrelated updates", () => {
 
     controller.destroy();
   });
+
+  it.each([false, true])("updates header padding through live theme variables without rebuilding the header (v5=%s)", (v5Defaults) => {
+    window.scrollTo = vi.fn();
+    const mount = createMount();
+    const controller = createAgentExperience(mount, { ...inlineConfig(), future: { v5Defaults } });
+    const header = mount.querySelector<HTMLElement>(".persona-widget-header")!;
+
+    expect(header.style.padding).toBe(
+      "var(--persona-components-header-padding, 20px 24px)"
+    );
+    expect(mount.style.getPropertyValue("--persona-components-header-padding")).toBe(
+      "20px 24px"
+    );
+
+    controller.update({ theme: { components: { header: { padding: "12px 16px" } } } });
+    expect(mount.querySelector(".persona-widget-header")).toBe(header);
+    expect(mount.style.getPropertyValue("--persona-components-header-padding")).toBe(
+      "12px 16px"
+    );
+    expect(mount.style.getPropertyValue("--persona-components-header-minimalPadding")).toBe(
+      "12px 16px"
+    );
+
+    controller.destroy();
+  });
 });
 
 describe("composer and header icon stability across unrelated updates", () => {

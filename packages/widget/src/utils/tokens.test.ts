@@ -26,6 +26,67 @@ describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
       );
       expect(theme.palette.colors.gray[500]).toBe('#123456');
     });
+
+    it('materializes the phase-three token defaults without changing either defaults state', () => {
+      const css = themeToCssVariables(createTheme(undefined, { future: { v5Defaults }, validate: false }));
+      expect(css['--persona-components-header-padding']).toBe('20px 24px');
+      expect(css['--persona-components-header-minimalPadding']).toBe('16px 24px');
+      expect(css['--persona-components-message-gap']).toBe('12px');
+      expect(css['--persona-components-panel-width']).toBe('min(440px, calc(100vw - 24px))');
+      expect(css['--persona-components-panel-height']).toBe(
+        'min(640px, max(200px, calc(100vh - 64px)))'
+      );
+      expect(css['--persona-components-panel-modes-mobile-borderRadius']).toBe('0');
+    });
+
+    it('derives minimal header padding from an explicit shared padding unless overridden', () => {
+      const shared = createTheme(
+        { components: { header: { padding: '10px 12px' } } },
+        { future: { v5Defaults }, validate: false }
+      );
+      expect(shared.components.header.minimalPadding).toBe('10px 12px');
+
+      const specific = createTheme(
+        { components: { header: { padding: '10px 12px', minimalPadding: '8px 10px' } } },
+        { future: { v5Defaults }, validate: false }
+      );
+      expect(specific.components.header.minimalPadding).toBe('8px 10px');
+    });
+
+    it('emits prefixed collapsible-widget chrome aliases and legacy aliases', () => {
+      const css = themeToCssVariables(createTheme(undefined, { future: { v5Defaults }, validate: false }));
+
+      expect(css['--persona-cw-container']).toBe('#f9fafb');
+      expect(css['--persona-cw-surface']).toBe('#f9fafb');
+      expect(css['--persona-cw-border']).toBe('#e5e7eb');
+      expect(css['--cw-container']).toBe(css['--persona-cw-container']);
+      expect(css['--cw-surface']).toBe(css['--persona-cw-surface']);
+      expect(css['--cw-border']).toBe(css['--persona-cw-border']);
+    });
+
+    it('applies explicit collapsible-widget tokens to both alias families', () => {
+      const css = themeToCssVariables(
+        createTheme(
+          {
+            components: {
+              collapsibleWidget: {
+                container: '#123456',
+                surface: '#234567',
+                border: '#345678',
+              },
+            },
+          },
+          { future: { v5Defaults }, validate: false }
+        )
+      );
+
+      expect(css['--persona-cw-container']).toBe('#123456');
+      expect(css['--persona-cw-surface']).toBe('#234567');
+      expect(css['--persona-cw-border']).toBe('#345678');
+      expect(css['--cw-container']).toBe('#123456');
+      expect(css['--cw-surface']).toBe('#234567');
+      expect(css['--cw-border']).toBe('#345678');
+    });
   }
 );
 

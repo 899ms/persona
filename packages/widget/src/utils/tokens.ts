@@ -9,7 +9,6 @@ import type {
   SemanticTokens,
 } from '../types/theme';
 import {
-  DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
   DEFAULT_FLOATING_LAUNCHER_WIDTH,
   resolveDefaultsVersion,
 } from '../defaults';
@@ -306,13 +305,31 @@ const DEFAULT_COMPONENTS_BASE: ComponentTokens = {
   },
   panel: {
     width: DEFAULT_FLOATING_LAUNCHER_WIDTH,
-    maxWidth: DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
-    height: '600px',
-    maxHeight: 'calc(100vh - 80px)',
+    // Matches the existing floating runtime geometry. `maxWidth` and
+    // `maxHeight` intentionally do not impose a second cap; ui.ts applies
+    // the responsive width and heightOffset rules for this mode.
+    maxWidth: 'none',
+    height: 'min(640px, max(200px, calc(100vh - 64px)))',
+    maxHeight: 'none',
     borderRadius: 'palette.radius.xl',
     shadow: 'palette.shadows.xl',
     inset: DEFAULT_PANEL_INSET,
     canvasBackground: DEFAULT_PANEL_CANVAS_BACKGROUND,
+    modes: {
+      floating: {
+        border: '1px solid var(--persona-border)',
+        shadow: 'palette.shadows.xl',
+        borderRadius: 'palette.radius.xl',
+      },
+      inline: {
+        border: '1px solid var(--persona-border)',
+        shadow: 'none',
+        borderRadius: 'palette.radius.xl',
+      },
+      docked: { border: 'none', shadow: 'none', borderRadius: 'palette.radius.xl' },
+      sidebar: { border: 'none', borderRadius: '0' },
+      mobile: { border: 'none', shadow: 'none', borderRadius: '0' },
+    },
   },
   header: {
     // Header role: solid primary. Border, subtitle, and action icons stay
@@ -320,11 +337,13 @@ const DEFAULT_COMPONENTS_BASE: ComponentTokens = {
     background: 'palette.colors.primary.500',
     foreground: 'palette.colors.primary.50',
     borderRadius: 'palette.radius.xl palette.radius.xl 0 0',
-    padding: 'semantic.spacing.md',
+    padding: '20px 24px',
+    minimalPadding: '16px 24px',
     iconBackground: 'palette.colors.primary.600',
     iconForeground: 'palette.colors.primary.50',
   },
   message: {
+    gap: '12px',
     user: {
       // User Messages role: solid primary
       background: 'palette.colors.primary.500',
@@ -778,6 +797,14 @@ export function createTheme(
       userConfig?.components as Partial<ComponentTokens> | undefined
     ),
   } as PersonaTheme;
+
+  // A shared header padding is also the minimal-layout override unless the
+  // host supplies the more specific token. Both keys remain emitted CSS vars,
+  // so live updates and scheme changes restyle existing header DOM in place.
+  const suppliedHeader = userConfig?.components?.header;
+  if (suppliedHeader?.padding !== undefined && suppliedHeader.minimalPadding === undefined) {
+    theme.components.header.minimalPadding = theme.components.header.padding;
+  }
 
   if (options.validate !== false) {
     const validation = validateTheme(theme);
@@ -1265,12 +1292,21 @@ export function themeToCssVariables(theme: PersonaTheme): Record<string, string>
   ]);
 
   // Collapsible widget chrome (tool/reasoning/approval bubbles)
-  cssVars['--cw-container'] =
-    cssVars['--persona-components-collapsibleWidget-container'] ?? cssVars['--persona-surface'];
-  cssVars['--cw-surface'] =
-    cssVars['--persona-components-collapsibleWidget-surface'] ?? cssVars['--persona-surface'];
-  cssVars['--cw-border'] =
-    cssVars['--persona-components-collapsibleWidget-border'] ?? cssVars['--persona-border'];
+  const collapsibleWidgetAliases = [
+    ['container', 'surface'],
+    ['surface', 'surface'],
+    ['border', 'border'],
+  ] as const;
+  for (const [name, semanticFallback] of collapsibleWidgetAliases) {
+    const value =
+      cssVars[`--persona-components-collapsibleWidget-${name}`] ??
+      cssVars[`--persona-${semanticFallback}`];
+    if (value !== undefined) {
+      cssVars[`--persona-cw-${name}`] = value;
+      // Kept for custom styles that adopted the original unprefixed aliases.
+      cssVars[`--cw-${name}`] = value;
+    }
+  }
 
   emitAliases(cssVars, [
     ['message-border', 'components-message-border', 'border'],

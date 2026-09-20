@@ -65,9 +65,10 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
 
   const header = createNode("div", {
     className:
-      "persona-widget-header persona-flex persona-items-center persona-gap-3 persona-px-6 persona-py-5",
+      "persona-widget-header persona-flex persona-items-center persona-gap-3",
     attrs: { "data-persona-theme-zone": "header" },
     style: {
+      padding: "var(--persona-components-header-padding, 20px 24px)",
       minHeight: HEADER_THEME_CSS.minHeight,
       backgroundColor: "var(--persona-header-bg, var(--persona-surface, #ffffff))",
       borderBottomColor: "var(--persona-header-border, var(--persona-divider, #f1f5f9))",

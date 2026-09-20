@@ -369,13 +369,32 @@ shorthand) still wins when set.
 | Token | Default |
 |-------|---------|
 | `width` | `min(440px, calc(100vw - 24px))` |
-| `maxWidth` | `440px` |
-| `height` | `600px` |
-| `maxHeight` | `calc(100vh - 80px)` |
+| `maxWidth` | `none` |
+| `height` | `min(640px, max(200px, calc(100vh - 64px)))` |
+| `maxHeight` | `none` |
 | `borderRadius` | `palette.radius.xl` |
 | `shadow` | `palette.shadows.xl` |
 | `inset` | `16px` |
 | `canvasBackground` | `transparent` |
+
+`width`, `maxWidth`, `height`, and `maxHeight` are the shared panel geometry
+tokens. `launcher.width` takes precedence over `launcherWidth` when either was
+explicitly supplied; otherwise both fall back to the panel geometry tokens.
+`launcher.sidebarWidth` only controls a sidebar, and `launcher.dock.width`
+only controls a dock. Without either alias, sidebars and docks preserve their
+`420px` defaults; an explicit `components.panel.width` supplies the sidebar or dock width
+when its legacy alias is not explicit. `launcher.heightOffset` continues
+to subtract from the resolved height, with the runtime retaining its 200px
+minimum.
+
+Use `modes.<mode>.border`, `modes.<mode>.shadow`, and
+`modes.<mode>.borderRadius` to tune chrome for `floating`, `inline`,
+`sidebar`, `docked`, or `mobile`. For each field, the rendered mode's explicit
+token wins, followed by the corresponding shared panel token, then that mode's
+default. The mode values are emitted as
+`--persona-components-panel-modes-<mode>-<field>`. Sidebar shadows remain
+direction-derived (left and right use opposite offsets) unless `components.panel.modes.sidebar.shadow` or the shared
+`components.panel.shadow` is set.
 
 `inset` and `canvasBackground` take effect only when the panel renders as a detached card, i.e. when you set `launcher.detachedPanel: true` or `artifacts.layout.paneAppearance: "detached"`. On a flush panel they are inert. `inset` is the gap between the detached card and the edges of the region it occupies, so the canvas behind it shows on all four sides.
 
@@ -456,13 +475,18 @@ of the box, with its hairline mixed from the pair rather than pinned to a shade.
 | `foreground` | `palette.colors.primary.50` |
 | `border` | derived from the `foreground` / `background` pair, then `semantic.colors.divider` |
 | `borderRadius` | `palette.radius.xl palette.radius.xl 0 0` |
-| `padding` | `semantic.spacing.md` |
+| `padding` | `"20px 24px"` |
+| `minimalPadding` | `"16px 24px"` |
 | `minHeight` | unset (`auto`) |
 
 `minHeight` (`--persona-header-min-height`) floors the header strip's height
 for both header layouts. Pin it together with
 `components.history.railHeader.minHeight` so the Messages rail's own top strip
 lines up with the conversation header beside it.
+
+Minimal header layouts resolve padding in this order: an explicit
+`minimalPadding`, then an explicit `padding`, then the default
+`"16px 24px"`. Standard headers use `padding` (default `"20px 24px"`).
 
 `title` and `subtitle` take the shared `TextStyleTokens` shape
 (`fontFamily`, `fontSize`, `fontWeight`, `lineHeight`, `letterSpacing`,
@@ -656,6 +680,10 @@ Components → Tooltip.
 | `assistant.background` | `semantic.colors.container` |
 | `assistant.text` | `semantic.colors.text` |
 | `assistant.borderRadius` | `palette.radius.lg` |
+| `gap` | `12px` |
+
+`gap` is emitted as `--persona-components-message-gap` and controls the space
+between consecutive transcript turns.
 
 #### Bubble geometry and type
 
@@ -1431,6 +1459,26 @@ semantic.colors.primary        → --persona-semantic-colors-primary
 components.button.background   → --persona-components-button-background
 ```
 
+### Staged default versions
+
+Set `future.v5Defaults` when creating a widget to select the v5 default table:
+
+```typescript
+createAgentExperience(mountElement, {
+  apiUrl: "/dispatch",
+  future: { v5Defaults: true },
+});
+```
+
+The flag selects defaults only. Explicit widget configuration and explicit theme
+tokens still take precedence. The v4 and v5 tables currently have the same
+values, so enabling it does not change the rendered theme yet. Theme utilities
+accept the same selection when resolving a theme outside a widget:
+
+```typescript
+createTheme(overrides, { future: { v5Defaults: true } });
+```
+
 ### Convenience Aliases
 
 Common tokens have short aliases for easier use in custom CSS:
@@ -1451,6 +1499,20 @@ Common tokens have short aliases for easier use in custom CSS:
 --persona-composer-overlay-band  /* components.composer.overlayBand */
 --persona-input-backdrop-filter  /* components.input.backdropFilter */
 ```
+
+### Collapsible widget chrome
+
+Tool, reasoning, and approval bubbles use these aliases for their shared
+container, surface, and border colors:
+
+```css
+--persona-cw-container  /* components.collapsibleWidget.container */
+--persona-cw-surface    /* components.collapsibleWidget.surface */
+--persona-cw-border     /* components.collapsibleWidget.border */
+```
+
+The former `--cw-container`, `--cw-surface`, and `--cw-border` aliases remain
+emitted for existing custom CSS. New styles should use the prefixed aliases.
 
 ### Scrollbars
 

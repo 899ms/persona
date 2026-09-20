@@ -37,5 +37,5 @@ describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) 
 it("keeps the legacy defaults when the opt-in is missing", () => {
   expect(resolveDefaultsVersion()).toBe("v4");
   expect(resolveDefaultsVersion({ future: {} })).toBe("v4");
-  expect(mergeWithDefaults()).toEqual(DEFAULT_WIDGET_CONFIG);
+  expect(JSON.stringify(mergeWithDefaults())).toBe(JSON.stringify(DEFAULT_WIDGET_CONFIG));
 });

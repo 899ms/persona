@@ -15,6 +15,26 @@ export interface PersonaWidgetConfig {
 
 type WidgetConfig = PersonaWidgetConfig | AgentWidgetConfig;
 
+const isPanelWidthMode = (config?: WidgetConfig): boolean =>
+  !!config &&
+  "launcher" in config &&
+  (config.launcher?.sidebarMode === true || config.launcher?.mountMode === "docked");
+
+const applyPanelModeWidth = (theme: PersonaTheme, config?: WidgetConfig): PersonaTheme => {
+  if (!config || !isPanelWidthMode(config)) return theme;
+  const lightWidth = config.theme?.components?.panel?.width;
+  const darkWidth = config.darkTheme?.components?.panel?.width;
+  const configuredWidth = getColorScheme(config) === "dark" ? darkWidth ?? lightWidth : lightWidth;
+  if (configuredWidth != null) return theme;
+  return {
+    ...theme,
+    components: {
+      ...theme.components,
+      panel: { ...theme.components.panel, width: "420px" },
+    },
+  };
+};
+
 const DARK_PALETTE_BASE = {
   colors: {
     primary: {
@@ -255,16 +275,16 @@ export const getActiveTheme = (config?: WidgetConfig): PersonaTheme => {
   const darkThemeConfig = normalizeThemeConfig(config?.darkTheme);
 
   if (scheme === 'dark') {
-    return createDarkTheme(
+    return applyPanelModeWidth(createDarkTheme(
       deepMerge(
         (lightThemeConfig ?? {}) as Record<string, unknown>,
         (darkThemeConfig ?? {}) as Record<string, unknown>
       ) as DeepPartial<PersonaTheme>,
       { future: config?.future }
-    );
+    ), config);
   }
 
-  return createLightTheme(lightThemeConfig, { future: config?.future });
+  return applyPanelModeWidth(createLightTheme(lightThemeConfig, { future: config?.future }), config);
 };
 
 export const getCssVariables = (theme: PersonaTheme): Record<string, string> => {

@@ -31,7 +31,7 @@ const styles = (element: Element | null) => {
   );
 };
 
-const snapshot = () => {
+const snapshot = (v5Defaults = false) => {
   const stylesheet = document.createElement("style");
   stylesheet.textContent = readFileSync(stylesheetPath, "utf8");
   document.head.appendChild(stylesheet);
@@ -41,6 +41,7 @@ const snapshot = () => {
     apiUrl: "https://api.example.com/chat",
     launcher: { autoExpand: true },
     persistState: false,
+    future: { v5Defaults },
   });
   controller.injectUserMessage({ content: "Baseline user message" });
   controller.injectAssistantMessage({ content: "Baseline assistant message" });
@@ -59,7 +60,7 @@ const snapshot = () => {
   });
 
   const result = {
-    themeCssVariables: themeToCssVariables(createTheme()),
+    themeCssVariables: themeToCssVariables(createTheme(undefined, { future: { v5Defaults } })),
     mergedDefaultConfig: mergeWithDefaults(),
     computedStyles: {
       header: styles(mount.querySelector(".persona-widget-header")),
@@ -99,18 +100,59 @@ const resolveComputedTokens = (value: DefaultsSnapshot): DefaultsSnapshot => ({
           if (typeof token !== "string") break;
           resolved = token;
         }
-        return [property, resolved];
+        return [property, resolved.replace(/([\d.]+)rem\b/g, (_, amount) => `${Number(amount) * 16}px`)];
       })),
     ])
   ) as DefaultsSnapshot["computedStyles"],
 });
 
-describe("4.22.0 defaults parity", () => {
+describe.each([false, true])("4.22.0 defaults parity (v5=%s)", (v5Defaults) => {
   it("matches the committed baseline", () => {
     // JSON is deliberately the fixture format: it makes omitted/undefined
     // config and token values deterministic across Node versions.
-    const actual = JSON.parse(JSON.stringify(snapshot()));
+    const actual = JSON.parse(JSON.stringify(snapshot(v5Defaults)));
     const baseline = JSON.parse(readFileSync(fixturePath, "utf8"));
-    expect(resolveComputedTokens(actual)).toEqual(resolveComputedTokens(baseline));
+    // Phase 3 activates formerly unused tokens. Lock their old and new values
+    // explicitly instead of rewriting the historical fixture or ignoring keys.
+    const activatedTokens: Record<string, [string, string]> = {
+      "--persona-components-header-padding": ["1rem", "20px 24px"],
+      "--persona-components-panel-height": ["600px", "min(640px, max(200px, calc(100vh - 64px)))"],
+      "--persona-components-panel-maxHeight": ["calc(100vh - 80px)", "none"],
+      "--persona-components-panel-maxWidth": ["440px", "none"],
+    };
+    const addedTokens: Record<string, string> = {
+      "--persona-components-header-minimalPadding": "16px 24px",
+      "--persona-components-message-gap": "12px",
+      "--persona-cw-container": "#f9fafb",
+      "--persona-cw-surface": "#f9fafb",
+      "--persona-cw-border": "#e5e7eb",
+    };
+    for (const [mode, border, shadow, radius] of [
+      ["floating", "1px solid var(--persona-border)", baseline.themeCssVariables["--persona-components-panel-shadow"], "0.75rem"],
+      ["inline", "1px solid var(--persona-border)", "none", "0.75rem"],
+      ["docked", "none", "none", "0.75rem"],
+      ["sidebar", "none", undefined, "0"],
+      ["mobile", "none", "none", "0"],
+    ]) {
+      addedTokens[`--persona-components-panel-modes-${mode}-border`] = border!;
+      addedTokens[`--persona-components-panel-modes-${mode}-borderRadius`] = radius!;
+      if (shadow !== undefined) addedTokens[`--persona-components-panel-modes-${mode}-shadow`] = shadow;
+    }
+    // Resolve computed declarations before adapting the token map for comparison.
+    // The baseline stylesheet uses rem; this JSDOM harness assumes a 16px root.
+    const resolvedActual = resolveComputedTokens(actual);
+    const resolvedBaseline = resolveComputedTokens(baseline);
+    resolvedActual.themeCssVariables = { ...actual.themeCssVariables };
+    for (const [key, [oldValue, newValue]] of Object.entries(activatedTokens)) {
+      expect(baseline.themeCssVariables[key], key).toBe(oldValue);
+      expect(actual.themeCssVariables[key], key).toBe(newValue);
+      resolvedActual.themeCssVariables[key] = oldValue;
+    }
+    for (const [key, value] of Object.entries(addedTokens)) {
+      expect(baseline.themeCssVariables).not.toHaveProperty(key);
+      expect(actual.themeCssVariables[key], key).toBe(value);
+      delete resolvedActual.themeCssVariables[key];
+    }
+    expect(resolvedActual).toEqual(resolvedBaseline);
   });
 });

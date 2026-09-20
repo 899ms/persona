@@ -4363,14 +4363,14 @@
 /* Content areas: themed border and background for tool/reasoning bubbles */
 .persona-tool-bubble .persona-border-t,
 .persona-reasoning-bubble .persona-border-t {
-  border-top-color: var(--cw-border, #e5e7eb);
-  background-color: var(--cw-container, #f9fafb);
+  border-top-color: var(--persona-cw-border, var(--cw-border, #e5e7eb));
+  background-color: var(--persona-cw-container, var(--cw-container, #f9fafb));
 }
 
 /* Tool bubble code blocks: themed surface and border */
 .persona-tool-bubble pre {
-  background-color: var(--cw-surface, #ffffff);
-  border-color: var(--cw-border, #f1f5f9);
+  background-color: var(--persona-cw-surface, var(--cw-surface, #ffffff));
+  border-color: var(--persona-cw-border, var(--cw-border, #f1f5f9));
 }
 
 /* Collapsible header hover (tool + reasoning) */
@@ -4380,7 +4380,7 @@
 }
 .persona-tool-bubble button[data-expand-header]:hover,
 .persona-reasoning-bubble button[data-expand-header]:hover {
-  background-color: var(--cw-container, #f8fafc);
+  background-color: var(--persona-cw-container, var(--cw-container, #f8fafc));
 }
 
 /* Collapsed live preview blocks: match expanded content's 1px border-top with transparent border */
@@ -4395,7 +4395,7 @@
   --_dot-size: 6px;
   --_branch-len: 0.75rem;
   --_branch-y: 1.5rem;
-  --_rail-color: var(--cw-border, #d1d5db);
+  --_rail-color: var(--persona-cw-border, var(--cw-border, #d1d5db));
   gap: 0;
 }
 
@@ -4431,7 +4431,7 @@
   height: var(--_dot-size);
   border-radius: 999px;
   border: var(--_rail-w) solid var(--_rail-color);
-  background: var(--cw-surface, #fff);
+  background: var(--persona-cw-surface, var(--cw-surface, #fff));
   transform: translate(-50%, -50%);
 }
 
@@ -4502,7 +4502,7 @@
   height: var(--_dot-size);
   border-radius: 999px;
   border: var(--_rail-w) solid var(--_rail-color);
-  background: var(--cw-surface, #fff);
+  background: var(--persona-cw-surface, var(--cw-surface, #fff));
   transform: translate(-50%, -50%);
   z-index: 1;
 }
@@ -4513,8 +4513,8 @@
 
 /* Approval bubble defaults (overridden by inline styles when config exists) */
 .persona-approval-bubble {
-  background-color: var(--cw-surface, #ffffff);
-  border-color: var(--cw-border, #e5e7eb);
+  background-color: var(--persona-cw-surface, var(--cw-surface, #ffffff));
+  border-color: var(--persona-cw-border, var(--cw-border, #e5e7eb));
 }
 
 /* Approval button hover/active states */

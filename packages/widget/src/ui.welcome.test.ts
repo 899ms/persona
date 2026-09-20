@@ -328,8 +328,8 @@ describe("welcome visibility state machine", () => {
 });
 
 describe("welcome greeting bubble", () => {
-  it("renders an assistant-styled bubble above the transcript", () => {
-    const { mount } = makeController({ welcome: { message: "Hi, I'm Ada." } });
+  it.each([false, true])("renders an assistant-styled bubble above the transcript (v5=%s)", (v5Defaults) => {
+    const { mount } = makeController({ future: { v5Defaults }, welcome: { message: "Hi, I'm Ada." } });
     const greeting = greetingHost(mount);
     expect(isVisible(greeting)).toBe(true);
     expect(greeting.textContent).toBe("Hi, I'm Ada.");
@@ -342,7 +342,7 @@ describe("welcome greeting bubble", () => {
     const body = mount.querySelector<HTMLElement>("#persona-scroll-container")!;
     const children = Array.from(body.children);
     const transcript = body.querySelector<HTMLElement>(
-      ":scope > .persona-gap-3"
+      ":scope > .persona-widget-messages"
     )!;
     expect(children.indexOf(greeting)).toBeLessThan(
       children.indexOf(transcript)

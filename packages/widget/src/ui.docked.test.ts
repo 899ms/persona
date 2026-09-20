@@ -10,6 +10,25 @@ describe("createAgentExperience docked mode", () => {
     document.body.innerHTML = "";
   });
 
+  it.each([false, true])("lets an active dark mode token override global panel chrome (v5=%s)", (v5Defaults) => {
+    const mount = document.createElement("div");
+    document.body.appendChild(mount);
+    const controller = createAgentExperience(mount, {
+      apiUrl: "https://api.example.com/chat",
+      colorScheme: "dark",
+      future: { v5Defaults },
+      launcher: { mountMode: "docked", autoExpand: true },
+      theme: { components: { panel: { border: "2px solid red" } } },
+      darkTheme: {
+        components: { panel: { modes: { docked: { border: "3px solid blue" } } } },
+      },
+    });
+
+    const container = mount.querySelector<HTMLElement>(".persona-widget-container");
+    expect(container?.style.border).toBe("3px solid blue");
+    controller.destroy();
+  });
+
   it("toggles docked panel open/closed; built-in launcher stays hidden (open via controller.open)", () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);

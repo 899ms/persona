@@ -1,14 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { mergeConfigUpdate } from "./config-merge";
-import { mergeWithDefaults } from "../defaults";
+import { DEFAULT_FLOATING_LAUNCHER_WIDTH, mergeWithDefaults } from "../defaults";
+import { getPanelAliasProvenance } from "./panel-config";
 import type { AgentWidgetConfig, StreamAnimationPlugin } from "../types";
 
-// Stored controller config is post-mergeWithDefaults; simulate that here.
-const base = (overrides: Partial<AgentWidgetConfig> = {}): AgentWidgetConfig =>
-  mergeWithDefaults({ apiUrl: "https://api.example.com/chat", ...overrides }) as AgentWidgetConfig;
+describe.each([false, true])("mergeConfigUpdate (v5=%s)", (v5Defaults) => {
+  // Stored controller config is post-mergeWithDefaults.
+  const base = (overrides: Partial<AgentWidgetConfig> = {}): AgentWidgetConfig =>
+    mergeWithDefaults({ apiUrl: "https://api.example.com/chat", future: { v5Defaults }, ...overrides }) as AgentWidgetConfig;
 
-describe("mergeConfigUpdate", () => {
+  it("retains and clears legacy panel-alias provenance across live patches", () => {
+    const initial = base({ launcher: { width: "600px", dock: { width: "520px" } } });
+    expect(getPanelAliasProvenance(initial)).toMatchObject({ launcherWidth: true, dockWidth: true });
+
+    const retained = mergeConfigUpdate(initial, { launcher: { title: "Updated" } });
+    expect(getPanelAliasProvenance(retained)).toMatchObject({ launcherWidth: true, dockWidth: true });
+
+    const cleared = mergeConfigUpdate(retained, { launcher: { width: undefined, dock: { width: undefined } } });
+    expect(getPanelAliasProvenance(cleared)).toMatchObject({ launcherWidth: false, dockWidth: false });
+
+    const parentCleared = mergeConfigUpdate(initial, { launcher: undefined });
+    expect(getPanelAliasProvenance(parentCleared)).toMatchObject({ launcherWidth: false, dockWidth: false });
+
+    const dockParentCleared = mergeConfigUpdate(initial, { launcher: { dock: undefined } });
+    expect(getPanelAliasProvenance(dockParentCleared)).toMatchObject({ launcherWidth: true, dockWidth: false });
+  });
+
+  it("does not treat an explicit undefined width as a legacy alias", () => {
+    const config = mergeWithDefaults({
+      future: { v5Defaults },
+      launcherWidth: "600px",
+      launcher: { width: undefined },
+    }) as AgentWidgetConfig;
+    expect(getPanelAliasProvenance(config)).toMatchObject({
+      launcherWidth: false,
+      legacyLauncherWidth: true,
+    });
+  });
+
+  it("keeps an explicit legacy width even when it equals the materialized default", () => {
+    const config = base({ launcher: { width: DEFAULT_FLOATING_LAUNCHER_WIDTH } });
+    expect(getPanelAliasProvenance(config).launcherWidth).toBe(true);
+  });
+
   it("recursively merges nested plain objects, preserving sibling overrides", () => {
     const prev = base({ launcher: { enabled: false, clearChat: { backgroundColor: "#123456" } } });
     const next = mergeConfigUpdate(prev, { launcher: { title: "After" } });

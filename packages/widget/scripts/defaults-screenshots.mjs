@@ -24,18 +24,25 @@ const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
 
 const scenarios = [
   "floating-open",
+  "floating-short",
   "floating-empty",
   "floating-closed",
   "inline",
+  "inline-minimal",
+  "sidebar",
   "docked",
   "fullscreen",
   "mobile",
   "tool",
+  "tool-expanded",
   "tool-running",
   "reasoning",
+  "reasoning-expanded",
   "approval",
 ];
 const schemes = ["light", "dark"];
+const scenarioFilter = process.env.PERSONA_SCREENSHOT_SCENARIOS?.split(",");
+const selectedScenarios = scenarioFilter ? scenarios.filter((name) => scenarioFilter.includes(name)) : scenarios;
 
 function usage() {
   console.error("Usage: defaults-screenshots.mjs capture <before|after> <dist-dir> | compare");
@@ -61,15 +68,17 @@ const scheme = query.get('scheme');
 const v5Defaults = query.get('defaults') === 'v5';
 document.body.dataset.scheme = scheme;
 const host = document.querySelector('#host');
-if (scenario === 'inline') host.className = 'inline';
+if (scenario.startsWith('inline')) host.className = 'inline';
 if (scenario === 'docked') host.className = 'docked';
 if (scenario === 'fullscreen') host.style.cssText = 'position:fixed;inset:0;width:100%;height:100%';
-const launcher = { autoExpand: true, title: 'Persona', subtitle: 'Here to help' };
+const launcher = { autoExpand: true };
 if (scenario === 'floating-closed') launcher.autoExpand = false;
-if (scenario === 'inline' || scenario === 'fullscreen') { launcher.enabled = false; launcher.fullHeight = true; }
+if (scenario.startsWith('inline') || scenario === 'fullscreen') { launcher.enabled = false; launcher.fullHeight = true; }
 if (scenario === 'docked') { launcher.mountMode = 'docked'; launcher.autoExpand = true; launcher.dock = { side: 'right', width: '420px', reveal: 'overlay', animate: false }; }
+if (scenario === 'sidebar') launcher.sidebarMode = true;
 const controller = AgentWidget.initAgentWidget({ target: host, config: {
-  apiUrl: '/dispatch', colorScheme: scheme, launcher, persistState: false, future: { v5Defaults }, suggestionChips: []
+  apiUrl: '/dispatch', colorScheme: scheme, launcher, persistState: false, future: { v5Defaults }, suggestionChips: [],
+  ...(scenario === 'inline-minimal' ? { layout: { header: { layout: 'minimal' } } } : {})
 } });
 const stamp = (message) => ({ ...message, createdAt: '2026-01-01T12:00:00.000Z', streaming: false });
 function seedText() {
@@ -77,12 +86,12 @@ function seedText() {
   controller.injectAssistantMessage({ content: 'The project is on track. I can help with the next step.' });
 }
 function seed(kind) {
-  if (kind === 'floating-open' || kind === 'inline' || kind === 'docked' || kind === 'fullscreen' || kind === 'mobile') return seedText();
-  if (kind === 'tool' || kind === 'tool-running') {
+  if (['floating-open','floating-short','inline','inline-minimal','sidebar','docked','fullscreen','mobile'].includes(kind)) return seedText();
+  if (kind === 'tool' || kind === 'tool-running' || kind === 'tool-expanded') {
     const status = kind === 'tool-running' ? 'running' : 'complete';
     return controller.injectTestMessage({ type: 'message', message: stamp({ id: 'tool-1', role: 'assistant', content: '', variant: 'tool', toolCall: { id: 'tool-1', name: 'Search documentation', status, duration: 1200, chunks: ['Found the integration guide.'] } }) });
   }
-  if (kind === 'reasoning') return controller.injectTestMessage({ type: 'message', message: stamp({ id: 'reasoning-1', role: 'assistant', content: '', variant: 'reasoning', reasoning: { id: 'reasoning-1', status: 'complete', durationMs: 2300, chunks: ['Reviewing the available options.'] } }) });
+  if (kind === 'reasoning' || kind === 'reasoning-expanded') return controller.injectTestMessage({ type: 'message', message: stamp({ id: 'reasoning-1', role: 'assistant', content: '', variant: 'reasoning', reasoning: { id: 'reasoning-1', status: 'complete', durationMs: 2300, chunks: ['Reviewing the available options.'] } }) });
   if (kind === 'approval') return controller.injectTestMessage({ type: 'message', message: stamp({ id: 'approval-1', role: 'assistant', content: '', variant: 'approval', approval: { id: 'approval-1', status: 'pending', agentId: 'agent-1', executionId: 'execution-1', toolName: 'Write file', description: 'Write the generated file', parameters: { path: 'output.md' } } }) });
 }
 seed(scenario);
@@ -118,15 +127,15 @@ async function serve(dist) {
 async function capture(label, dist) {
   if (!existsSync(join(dist, "index.global.js"))) throw new Error(`Missing widget distribution: ${dist}`);
   const target = join(outputRoot, label);
-  await rm(target, { recursive: true, force: true });
+  if (!scenarioFilter) await rm(target, { recursive: true, force: true });
   await mkdir(target, { recursive: true });
   const server = await serve(dist);
   const port = server.address().port;
   const browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   try {
-    for (const defaults of ["v4", "v5"]) for (const scheme of schemes) for (const scenario of scenarios) {
+    for (const defaults of ["v4", "v5"]) for (const scheme of schemes) for (const scenario of selectedScenarios) {
       const mobile = scenario === "mobile";
-      const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 }, deviceScaleFactor: 1, colorScheme: scheme });
+      const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: scenario === "floating-short" ? 500 : 900 }, deviceScaleFactor: 1, colorScheme: scheme });
       const pageErrors = [];
       page.on("pageerror", (error) => pageErrors.push(error));
       await page.addInitScript(() => {
@@ -140,7 +149,7 @@ async function capture(label, dist) {
       await page.waitForTimeout(700); // lazy approval chunk adoption / final DOM paint
       const expected = scenario === "floating-closed" ? ".persona-launcher-surface button" :
         scenario.startsWith("tool") ? ".persona-tool-bubble" :
-        scenario === "reasoning" ? ".persona-reasoning-bubble" :
+        scenario.startsWith("reasoning") ? ".persona-reasoning-bubble" :
         scenario === "approval" ? "button:has-text('Allow')" :
         scenario === "floating-empty" ? ".persona-widget-header" :
         ".persona-message-row-assistant .persona-message-bubble";
@@ -148,6 +157,14 @@ async function capture(label, dist) {
         await page.waitForSelector(expected, { timeout: 5_000 });
       } catch (error) {
         throw new Error(`Scenario ${scheme}/${scenario} did not render ${expected}: ${await page.locator("[data-persona-root]").innerText()}\n${error}`);
+      }
+      if (scenario.endsWith("-expanded")) {
+        const header = page.locator("button[data-expand-header='true']");
+        await header.click();
+        // Expansion schedules scroll anchoring after layout; capture its settled
+        // position, not whichever animation frame happens to follow the click.
+        await page.waitForTimeout(350);
+        if (await header.getAttribute("aria-expanded") !== "true") throw new Error("Expected expanded tool/reasoning body");
       }
       if (pageErrors.length) throw pageErrors[0];
       await page.screenshot({ path: join(target, `${defaults}-${scheme}-${scenario}.png`), fullPage: true });
@@ -157,7 +174,7 @@ async function capture(label, dist) {
     await browser.close();
     await new Promise((done) => server.close(done));
   }
-  console.log(`Captured ${2 * scenarios.length * schemes.length} screenshots in ${target}`);
+  console.log(`Captured ${2 * selectedScenarios.length * schemes.length} screenshots in ${target}`);
 }
 
 async function pngs(directory) {
