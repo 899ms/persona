@@ -122,6 +122,50 @@ export type RuntypeExecutionStreamEvent = ({
 }) | {
   executionId: string;
   id: string;
+  iteration?: number;
+  model?: string;
+  ordinal: number;
+  provider?: string;
+  seq: number;
+  startedAt?: string;
+  stepId?: string;
+  subagent?: {
+  agentName?: string;
+  parentToolCallId?: string;
+  toolName: string;
+};
+  turnId?: string;
+  type: "model_call_start";
+} | {
+  completedAt?: string;
+  cost?: number;
+  durationMs?: number;
+  executionId: string;
+  finishReason?: string;
+  id: string;
+  iteration?: number;
+  model?: string;
+  ordinal: number;
+  provider?: string;
+  responseModel?: string;
+  seq: number;
+  subagent?: {
+  agentName?: string;
+  parentToolCallId?: string;
+  toolName: string;
+};
+  success?: boolean;
+  tokens?: {
+  cacheRead?: number;
+  cacheWrite?: number;
+  input: number;
+  output: number;
+};
+  turnId?: string;
+  type: "model_call_complete";
+} | {
+  executionId: string;
+  id: string;
   index?: number;
   name?: string;
   outputVariable?: string;
@@ -560,6 +604,7 @@ export type RuntypeClientInitResponse = {
   conversationRevision: string;
   durableRecovery?: {
   enabled: boolean;
+  join?: boolean;
 };
   expiresAt: string;
   flow?: {
@@ -621,7 +666,7 @@ export type RuntypeClientChatRequest = {
 }>;
   metadata?: Record<string, unknown>;
   sessionId: string;
-  submitMode?: "normal" | "interrupt";
+  submitMode?: "normal" | "interrupt" | "join";
   turnId?: string;
 };
 

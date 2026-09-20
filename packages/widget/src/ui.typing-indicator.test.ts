@@ -133,3 +133,219 @@ describe("standalone typing indicator bubble", () => {
     destroy();
   });
 });
+
+/**
+ * Regression coverage for hidden tool/reasoning rows. With
+ * `features.showToolCalls: false` the tool row never renders, so it must not
+ * count as "the assistant is already responding" and hide the standalone dots
+ * for the whole tool phase.
+ */
+describe("standalone typing indicator with hidden activity rows", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    if (typeof localStorage !== "undefined") localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  const mountStreaming = async (config: Record<string, unknown>) => {
+    global.fetch = vi.fn().mockImplementation(
+      () => new Promise(() => {})
+    ) as unknown as typeof fetch;
+
+    const mount = createMount();
+    const controller = createAgentExperience(mount, {
+      apiUrl: "https://api.example.com/chat",
+      launcher: { enabled: false },
+      ...config,
+    } as unknown as Parameters<typeof createAgentExperience>[1]);
+
+    controller.submitMessage("hello");
+    await Promise.resolve();
+    await Promise.resolve();
+    return { mount, controller };
+  };
+
+  // The session orders by createdAt first, then by its Date.now()-based
+  // sequence, so injected rows need both stamped in the future to sort after
+  // the user message the way real stream rows do.
+  const seq = (n: number) => Date.now() + 60_000 + n;
+  const at = (n: number) => new Date(seq(n)).toISOString();
+
+  const injectTool = (
+    controller: ReturnType<typeof createAgentExperience>,
+    id: string,
+    status: "running" | "complete",
+    sequence: number
+  ) => {
+    controller.injectTestMessage({
+      type: "message",
+      message: {
+        id,
+        role: "assistant",
+        content: "",
+        createdAt: new Date(sequence).toISOString(),
+        sequence,
+        streaming: status !== "complete",
+        variant: "tool",
+        toolCall: { id, name: "lookup", status },
+      },
+    });
+  };
+
+  const injectReasoning = (
+    controller: ReturnType<typeof createAgentExperience>,
+    id: string,
+    status: "streaming" | "complete",
+    sequence: number
+  ) => {
+    controller.injectTestMessage({
+      type: "message",
+      message: {
+        id,
+        role: "assistant",
+        content: "",
+        createdAt: new Date(sequence).toISOString(),
+        sequence,
+        streaming: status !== "complete",
+        variant: "reasoning",
+        reasoning: { id, status, chunks: ["thinking"] },
+      },
+    });
+  };
+
+  const typingIndicator = (mount: HTMLElement) =>
+    mount.querySelector<HTMLElement>('[data-typing-indicator="true"]');
+
+
+  it("keeps the dots while a hidden tool call is running", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showToolCalls: false },
+    });
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    injectTool(controller, "tool-1", "running", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).toBeNull();
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots after a hidden tool call completes, before the next text", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showToolCalls: false },
+    });
+
+    injectTool(controller, "tool-1", "running", seq(1));
+    injectTool(controller, "tool-1", "complete", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).toBeNull();
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots when a hidden tool call follows an intermediate assistant text", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showToolCalls: false },
+    });
+
+    controller.injectTestMessage({
+      type: "message",
+      message: {
+        id: "text-1",
+        role: "assistant",
+        content: "Let me look that up.",
+        createdAt: at(1),
+        sequence: seq(1),
+        streaming: false,
+      },
+    });
+    injectTool(controller, "tool-1", "complete", seq(2));
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("still hides the dots while a visible tool call renders its own bubble", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showToolCalls: true },
+    });
+
+    injectTool(controller, "tool-1", "running", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).not.toBeNull();
+    expect(typingIndicator(mount)).toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots while hidden reasoning streams", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showReasoning: false },
+    });
+
+    injectReasoning(controller, "reason-1", "streaming", seq(1));
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    injectReasoning(controller, "reason-1", "complete", seq(1));
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots after a visible tool call is removed by completedVisibility", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: {
+        showToolCalls: true,
+        toolCallDisplay: { completedVisibility: "removed" },
+      },
+    });
+
+    injectTool(controller, "tool-1", "running", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).not.toBeNull();
+    expect(typingIndicator(mount)).toBeNull();
+
+    injectTool(controller, "tool-1", "complete", seq(1));
+    expect(mount.querySelector(".persona-tool-bubble")).toBeNull();
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps the dots after visible reasoning is removed by completedVisibility", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: {
+        showReasoning: true,
+        reasoningDisplay: { completedVisibility: "removed" },
+      },
+    });
+
+    injectReasoning(controller, "reason-1", "streaming", seq(1));
+    expect(typingIndicator(mount)).toBeNull();
+
+    injectReasoning(controller, "reason-1", "complete", seq(1));
+    expect(typingIndicator(mount)).not.toBeNull();
+
+    controller.destroy();
+  });
+
+  it("hides the dots once a real assistant message is streaming", async () => {
+    const { mount, controller } = await mountStreaming({
+      features: { showToolCalls: false },
+    });
+
+    injectTool(controller, "tool-1", "complete", seq(1));
+    controller.injectTestMessage({
+      type: "message",
+      message: {
+        id: "text-1",
+        role: "assistant",
+        content: "Here you go",
+        createdAt: at(2),
+        sequence: seq(2),
+        streaming: true,
+      },
+    });
+    expect(typingIndicator(mount)).toBeNull();
+
+    controller.destroy();
+  });
+});
