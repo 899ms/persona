@@ -95,7 +95,7 @@ initAgentWidget({
 ### Color Scheme Modes
 
 - **`'light'`** (default): Always use light palette
-- **`'dark'`**: Always use dark palette (inverted grays)
+- **`'dark'`**: Always use the dark preset. With `future.v5Defaults: true`, this includes dark surfaces and light text; V4 preserves its legacy neutral colors.
 - **`'auto'`**: Detect from page settings and switch automatically
 
 ### Auto Detection Order
@@ -1503,8 +1503,15 @@ createAgentExperience(mountElement, {
 
 The flag selects defaults only. Explicit widget configuration and explicit theme
 tokens still take precedence. The opt-in currently changes the core transcript,
-header, composer, and panel defaults. The real dark palette, circle launcher,
+header, composer, panel, and dark palette defaults. The circle launcher,
 centered welcome, and activity rows arrive in later phases.
+
+With the flag enabled, `colorScheme: "dark"` (or an automatically detected dark
+scheme) uses a `#0f0f10` canvas, `#1a1a1b` surface, `#27272a` user bubble,
+`#f4f4f5` text, and `#2a2a2d` borders. Inline code, code blocks, table headers,
+and blockquotes also receive dark defaults. Explicit `theme` tokens override
+these defaults, and `darkTheme` overrides `theme` when dark mode is active.
+Partial V5 palette overrides preserve the remaining dark shades.
 
 | Setting | V4 default | V5 default |
 |---|---|---|

@@ -1337,3 +1337,81 @@ describe.each([false, true])('versioned panel mode widths (v5=%s)', (v5Defaults)
     expect(getActiveTheme({ ...config, colorScheme: 'dark', darkTheme: { components: { panel: { width: '530px' } } } }).components.panel.width).toBe('530px');
   });
 });
+
+describe.each([false, true])('versioned dark palette (v5=%s)', (v5Defaults) => {
+  const future = { v5Defaults };
+  const variables = (colorScheme: 'light' | 'dark' | 'auto') =>
+    themeToCssVariables(getActiveTheme({ future, colorScheme }));
+
+  afterEach(() => document.documentElement.classList.remove('dark'));
+
+  it('changes neutral and markdown defaults only in V5', () => {
+    const light = variables('light');
+    const dark = variables('dark');
+    for (const token of [
+      'surface', 'background', 'text', 'border', 'md-inline-code-bg', 'md-inline-code-color',
+      'md-code-block-bg', 'md-table-header-bg', 'md-blockquote-bg', 'md-blockquote-text-color',
+    ]) {
+      expect(dark[`--persona-${token}`], token).toBeDefined();
+      if (v5Defaults) expect(dark[`--persona-${token}`], token).not.toBe(light[`--persona-${token}`]);
+      else expect(dark[`--persona-${token}`], token).toBe(light[`--persona-${token}`]);
+    }
+    if (v5Defaults) {
+      expect(dark['--persona-surface']).toBe('#1a1a1b');
+      expect(dark['--persona-background']).toBe('#0f0f10');
+      expect(dark['--persona-text']).toBe('#f4f4f5');
+      expect(dark['--persona-border']).toBe('#2a2a2d');
+      expect(dark['--persona-message-user-bg']).toBe('#27272a');
+    }
+  });
+
+  it('resolves auto mode through the same versioned dark defaults', () => {
+    expect(variables('auto')).toEqual(variables('light'));
+    document.documentElement.classList.add('dark');
+    expect(variables('auto')).toEqual(variables('dark'));
+  });
+
+  it.each(['light', 'dark', 'auto'] as const)('honors explicit palette, semantic and component tokens in %s', (colorScheme) => {
+    document.documentElement.classList.add('dark');
+    const css = themeToCssVariables(getActiveTheme({
+      future, colorScheme,
+      theme: {
+        palette: { colors: { primary: { 500: '#123456' }, gray: { 500: '#abcdef' } } },
+        semantic: { colors: { surface: '#223344' } },
+        components: { markdown: { inlineCode: { background: '#334455' } } },
+      },
+      darkTheme: { components: { markdown: { table: { headerBackground: '#445566' } } } },
+    }));
+    expect(css['--persona-button-primary-bg']).toBe('#123456');
+    expect(css['--persona-text-muted']).toBe('#abcdef');
+    expect(css['--persona-surface']).toBe('#223344');
+    expect(css['--persona-md-inline-code-bg']).toBe('#334455');
+    if (colorScheme !== 'light') {
+      expect(css['--persona-md-table-header-bg']).toBe('#445566');
+      // A single custom gray stop must not reset the rest of V5's dark ramp.
+      if (v5Defaults) expect(css['--persona-text']).toBe('#f4f4f5');
+    }
+  });
+});
+
+it('keeps V5 dark body and markdown text above AA contrast', () => {
+  const css = themeToCssVariables(getActiveTheme({ colorScheme: 'dark', future: { v5Defaults: true } }));
+  const luminance = (hex: string) => {
+    const channels = hex.slice(1).match(/.{2}/g)!.map((channel) => {
+      const value = parseInt(channel, 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  for (const [foreground, background] of [
+    ['text', 'surface'], ['text', 'background'], ['text', 'container'],
+    ['text-muted', 'surface'], ['text-muted', 'container'],
+    ['text', 'message-user-bg'], ['md-inline-code-color', 'md-inline-code-bg'],
+    ['md-code-block-text-color', 'md-code-block-bg'], ['text', 'md-table-header-bg'],
+    ['md-blockquote-text-color', 'md-blockquote-bg'], ['md-link-color', 'surface'],
+    ['button-primary-fg', 'button-primary-bg'],
+  ]) {
+    const values = [foreground, background].map((token) => luminance(css[`--persona-${token}`]));
+    expect((Math.max(...values) + 0.05) / (Math.min(...values) + 0.05), `${foreground} on ${background}`).toBeGreaterThanOrEqual(4.5);
+  }
+});

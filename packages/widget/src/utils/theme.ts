@@ -182,12 +182,73 @@ const DARK_COMPONENTS_BASE: DeepPartial<PersonaTheme> = {
   },
 };
 
-// Keep both layers explicit from the first opt-in release. The v5 layer is
-// intentionally the v4 layer until the dark-palette rollout changes it.
+// V4 stays frozen; V5 provides the dark neutral ramp and semantic roles.
 export const DARK_PALETTE_V4 = DARK_PALETTE_BASE;
-export const DARK_PALETTE_V5 = DARK_PALETTE_V4;
+export const DARK_PALETTE_V5 = {
+  ...DARK_PALETTE_V4,
+  colors: {
+    ...DARK_PALETTE_V4.colors,
+    primary: {
+      50: '#0f0f10', 100: '#27272a', 200: '#3f3f46', 300: '#52525b',
+      400: '#71717a', 500: '#f4f4f5', 600: '#e4e4e7', 700: '#d4d4d8',
+      800: '#a1a1aa', 900: '#fafafa', 950: '#ffffff',
+    },
+    gray: {
+      50: '#1a1a1b', 100: '#27272a', 200: '#2a2a2d', 300: '#52525b',
+      400: '#71717a', 500: '#a1a1aa', 600: '#b4b4bd', 700: '#d4d4d8',
+      800: '#e4e4e7', 900: '#f4f4f5', 950: '#fafafa',
+    },
+  },
+};
 export const DARK_COMPONENTS_V4 = DARK_COMPONENTS_BASE;
-export const DARK_COMPONENTS_V5 = DARK_COMPONENTS_V4;
+export const DARK_COMPONENTS_V5: DeepPartial<PersonaTheme> = {
+  semantic: {
+    colors: {
+      primary: 'palette.colors.primary.500',
+      accent: 'palette.colors.primary.600',
+      background: '#0f0f10',
+      surface: 'palette.colors.gray.50',
+      container: '#1c1c20',
+      text: 'palette.colors.gray.900',
+      textMuted: 'palette.colors.gray.500',
+      textInverse: '#0f0f10',
+      border: 'palette.colors.gray.200',
+      divider: 'palette.colors.gray.200',
+      interactive: {
+        default: 'palette.colors.primary.600', hover: 'palette.colors.primary.700',
+        focus: 'palette.colors.primary.600', active: 'palette.colors.primary.600',
+      },
+    },
+  },
+  components: {
+    ...DARK_COMPONENTS_BASE.components,
+    button: {
+      ...DARK_COMPONENTS_BASE.components?.button,
+      primary: { background: 'semantic.colors.primary', foreground: 'palette.colors.primary.50' },
+    },
+    markdown: {
+      inlineCode: { background: 'palette.colors.gray.100', foreground: 'semantic.colors.text' },
+      link: { foreground: 'semantic.colors.accent' },
+      codeBlock: {
+        background: 'semantic.colors.container', borderColor: 'semantic.colors.border',
+        textColor: 'semantic.colors.text',
+      },
+      table: { headerBackground: 'palette.colors.gray.100', borderColor: 'semantic.colors.border' },
+      blockquote: {
+        background: 'semantic.colors.container', borderColor: 'palette.colors.gray.300',
+        textColor: 'semantic.colors.textMuted',
+      },
+    },
+    eventStream: {
+      ...DARK_COMPONENTS_BASE.components?.eventStream,
+      badge: {
+        ...DARK_COMPONENTS_BASE.components?.eventStream?.badge,
+        step: { background: 'palette.colors.gray.100', foreground: 'palette.colors.gray.700' },
+        default: { background: 'palette.colors.gray.100', foreground: 'palette.colors.gray.700' },
+      },
+    },
+  },
+};
 
 const resolveDarkDefaults = (future?: { v5Defaults?: boolean }) =>
   resolveDefaultsVersion({ future }) === 'v5'
@@ -249,8 +310,9 @@ export const createDarkTheme = (
   // DARK_COMPONENTS goes underneath by deep merge, not spread: a shallow
   // spread of `components` would drop the dark ghost hover the moment a host
   // set any unrelated component token.
+  const darkDefaults = resolveDarkDefaults(options.future);
   const config = (deepMerge(
-    resolveDarkDefaults(options.future).components as Record<string, unknown>,
+    darkDefaults.components as Record<string, unknown>,
     (userConfig ?? {}) as Record<string, unknown>
   ) ?? {}) as DeepPartial<PersonaTheme>;
 
@@ -259,10 +321,11 @@ export const createDarkTheme = (
       ...config,
       palette: {
         ...config.palette,
-        colors: {
-          ...resolveDarkDefaults(options.future).palette.colors,
-          ...config.palette?.colors,
-        },
+        // Preserve every dark stop when a host overrides just one shade.
+        // Keep V4's historical scale replacement behavior unchanged.
+        colors: resolveDefaultsVersion(options) === 'v5'
+          ? deepMerge(darkDefaults.palette.colors, config.palette?.colors) as PersonaTheme['palette']['colors']
+          : { ...darkDefaults.palette.colors, ...config.palette?.colors },
       },
     },
     { validate: false, future: options.future }
