@@ -115,7 +115,6 @@ export const buildPillComposer = (context: ComposerBuildContext): ComposerElemen
   const composerForm = createNode("form", {
     className: "persona-widget-composer persona-pill-composer",
     attrs: { "data-persona-composer-form": "" },
-    style: { outline: "none" },
   });
 
   // Three columns of the grid: [paperclip?] · textarea · mic + send.

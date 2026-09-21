@@ -75,7 +75,6 @@ export const buildComposer = (context: ComposerBuildContext): ComposerElements =
     className:
       "persona-widget-composer persona-flex persona-flex-col persona-gap-2 persona-rounded-2xl persona-border persona-border-persona-border persona-bg-persona-input-background persona-px-4 persona-py-3",
     attrs: { "data-persona-composer-form": "" },
-    style: { outline: "none" },
   });
 
   const { textarea, attachAutoResize } = createComposerTextarea(config);

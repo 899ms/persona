@@ -621,6 +621,9 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   composer: {
     ...DEFAULT_COMPONENTS_BASE.composer,
     padding: '8px', fontSize: '15px', lineHeight: '1.5', controlSize: '32px', controlIconSize: '20px',
+    sendIconSize: '18px', sendButtonRadius: '9999px', footerBorder: 'none',
+    focusBorderColor: 'color-mix(in srgb, var(--persona-text) 28%, var(--persona-border))',
+    focusRing: '1px solid color-mix(in srgb, var(--persona-text) 12%, transparent)',
   },
 };
 export const DEFAULT_COMPONENTS = DEFAULT_COMPONENTS_V4;

@@ -264,6 +264,7 @@ export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {
     headerIconSize: "20px",
   },
   composer: { layout: "single-row" },
+  sendButton: { iconName: "arrow-up" },
   statusIndicator: { mode: "transient" },
   layout: {
     contentMaxWidth: "768px",

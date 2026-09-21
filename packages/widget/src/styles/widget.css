@@ -2812,11 +2812,6 @@
   }
 }
 
-/* Prevent form container from showing focus styles */
-.persona-widget-composer:focus-within {
-  outline: none !important;
-}
-
 .persona-widget-composer:focus-within textarea {
   border: none !important;
   outline: none !important;
@@ -2867,6 +2862,25 @@
   /* `components.composer.borderColor`; the fallback matches the
      `persona-border-persona-border` utility the form carries. */
   border-color: var(--persona-composer-border-color, var(--persona-border, #e5e7eb));
+}
+
+/* Focus belongs to the whole form, including its action controls. An outline
+   adds no layout size and preserves custom resting shadows. Unset V4 tokens
+   retain the resting border and no ring. Shared by compact and expanded forms. */
+[data-persona-root] .persona-widget-composer:focus-within {
+  outline: var(--persona-components-composer-focusRing, none);
+  outline-offset: 1px;
+}
+
+[data-persona-root] .persona-widget-composer:not(.persona-pill-composer):focus-within {
+  border-color: var(
+    --persona-components-composer-focusBorderColor,
+    var(--persona-composer-border-color, var(--persona-border, #e5e7eb))
+  );
+}
+
+[data-persona-root] .persona-pill-composer:focus-within {
+  border-color: var(--persona-components-composer-focusBorderColor, var(--persona-border, #e5e7eb));
 }
 
 /* Composer type scale, themeable via `components.composer.fontSize` /
@@ -2927,6 +2941,15 @@
    Positioning lives here, never inline: a plugin-owned footer is exempt from
    the cssText reset in applyFullHeightStyles, so an inline design would
    diverge for plugin composers. */
+
+/* Optional composer chrome tokens retain the legacy fallback in V4. */
+.persona-widget-footer.persona-border-t-persona-divider {
+  border-top: var(--persona-components-composer-footerBorder, 1px solid var(--persona-divider));
+}
+[data-persona-composer-submit].persona-composer-control {
+  border-radius: var(--persona-components-composer-sendButtonRadius, var(--persona-button-radius));
+}
+
 [data-persona-root][data-persona-composer-placement="overlay"] .persona-widget-footer {
   position: absolute;
   inset: auto 0 var(--persona-composer-lift, 0px) 0;

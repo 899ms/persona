@@ -294,6 +294,14 @@ export const createSendButton = (config?: AgentWidgetConfig): SendButtonParts =>
       sendIcon = renderLucideIcon(iconName, iconSize, iconColor, iconStroke);
     }
     stopIcon = renderLucideIcon(stopIconName, iconSize, iconColor, iconStroke);
+    // Keep explicit per-control sizing authoritative; otherwise use the theme.
+    if (!sendButtonConfig.iconSize) {
+      for (const icon of [sendIcon, stopIcon]) {
+        if (!icon) continue;
+        icon.style.width = `var(--persona-components-composer-sendIconSize, ${iconSize}px)`;
+        icon.style.height = `var(--persona-components-composer-sendIconSize, ${iconSize}px)`;
+      }
+    }
 
     if (sendIcon && stopIcon) {
       // One grid cell, both glyphs in it. `data-mode` on the stack decides

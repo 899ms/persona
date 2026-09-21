@@ -819,12 +819,43 @@ tokens are easy to confuse:
 
 ### Composer (`components.composer.*`)
 
+With `future.v5Defaults: true`, the icon-mode send button is circular with an
+18px upward arrow, the footer has no top divider, and focus adds a subtly
+stronger neutral border and thin outer ring. These are ordinary defaults
+and can be customized in either defaults state:
+
+```ts
+{
+  sendButton: { iconName: "arrow-up" },
+  theme: { components: { composer: {
+    sendIconSize: "18px",       // sendButton.iconSize explicitly overrides this
+    sendButtonRadius: "9999px",
+    footerBorder: "none",      // or "1px solid var(--persona-divider)"
+    focusBorderColor: "color-mix(in srgb, var(--persona-text) 28%, var(--persona-border))",
+    focusRing: "1px solid color-mix(in srgb, var(--persona-text) 12%, transparent)",
+  } } },
+}
+```
+
+V4 leaves these tokens unset: the glyph uses the existing half-button sizing,
+the radius inherits the primary button, and the footer retains its divider.
+Focus keeps the resting border and adds no ring in V4. Both focus tokens work
+in either defaults state, for compact and expanded composers. The ring is a CSS
+outline with a 1px offset: it causes no layout shift and preserves custom shadows.
+Set `focusRing: "none"` to disable it. The V5 colors adapt to light and dark themes.
+The `controlSize` token controls button size (32px in V5); touch controls retain
+the existing 40px minimum.
+
+
 The message input form at the bottom of the panel. `padding` and `gap` shape the
 form itself; `fontSize` and `lineHeight` set the textarea's type.
 
 | Token | Default | CSS Variable |
 |-------|---------|--------------|
 | `shadow` | `palette.shadows.none` | `--persona-composer-shadow` |
+| `borderColor` | Semantic border | `--persona-composer-border-color` |
+| `focusBorderColor` | V4: resting border; V5: neutral mix shown above | `--persona-components-composer-focusBorderColor` |
+| `focusRing` | V4: `none`; V5: 1px neutral outline shown above | `--persona-components-composer-focusRing` |
 | `padding` | `"0.75rem 1rem"` | `--persona-composer-padding` |
 | `gap` | `"0.5rem"` *(textarea row to actions row)* | `--persona-composer-gap` |
 | `fontSize` | `"0.875rem"` | `--persona-composer-font-size` |

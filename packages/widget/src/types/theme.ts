@@ -790,6 +790,10 @@ export interface ComposerChromeTokens {
   shadow: string;
   /** Border color of the composer form. @default semantic.colors.border */
   borderColor?: TokenReference<'color'>;
+  /** Focused form border color; falls back to borderColor. V5: a stronger neutral border. */
+  focusBorderColor?: TokenReference<'color'>;
+  /** Outer focus ring (CSS outline shorthand). V4: none; V5: a thin neutral ring. */
+  focusRing?: string;
   /** Inner padding of the composer form (raw CSS shorthand). @default "0.75rem 1rem" */
   padding?: string;
   /** Gap between the textarea row and the actions row. @default "0.5rem" */
@@ -808,6 +812,12 @@ export interface ComposerChromeTokens {
   controlSize?: string;
   /** Glyph box inside those controls. @default "24px" */
   controlIconSize?: string;
+  /** Send/stop glyph size. Explicit sendButton.iconSize wins. V5: 18px. */
+  sendIconSize?: string;
+  /** Icon-mode submit button radius. V4 inherits the primary button; V5: 9999px. */
+  sendButtonRadius?: string;
+  /** Footer top border (CSS shorthand). V4: 1px solid divider; V5: none. */
+  footerBorder?: string;
   /**
    * Background painted behind an overlaid composer footer
    * (`composer.placement: "overlay"`). Any CSS `background` value, gradients
