@@ -30,7 +30,7 @@ const applyPanelModeWidth = (theme: PersonaTheme, config?: WidgetConfig): Person
     ...theme,
     components: {
       ...theme.components,
-      panel: { ...theme.components.panel, width: "420px" },
+      panel: { ...theme.components.panel, width: resolveDefaultsVersion(config) === "v5" ? "400px" : "420px" },
     },
   };
 };

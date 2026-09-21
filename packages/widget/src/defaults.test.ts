@@ -9,9 +9,33 @@ import {
 describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) => {
   const future = { v5Defaults };
 
-  it("selects the requested version without changing its initial defaults", () => {
+  it("selects the requested version and its documented defaults", () => {
     expect(resolveDefaultsVersion({ future })).toBe(v5Defaults ? "v5" : "v4");
-    expect(resolveDefaults({ future })).toEqual(DEFAULT_WIDGET_CONFIG);
+    const defaults = resolveDefaults({ future });
+    if (!v5Defaults) expect(defaults).toEqual(DEFAULT_WIDGET_CONFIG);
+    expect(defaults.layout?.header?.showSubtitle).toBe(!v5Defaults);
+    expect(defaults.composer?.layout).toBe(v5Defaults ? "single-row" : undefined);
+    expect(defaults.launcher?.width).toBe(v5Defaults
+      ? "min(400px, calc(100vw - 24px))"
+      : "min(440px, calc(100vw - 24px))");
+  });
+
+  it("preserves explicit composer and header options above the version defaults", () => {
+    const result = mergeWithDefaults({
+      future, composer: { layout: "stacked" },
+      layout: { header: { showSubtitle: true } },
+    });
+    expect(result.composer?.layout).toBe("stacked");
+    expect(result.layout?.header?.showSubtitle).toBe(true);
+    const partial = mergeWithDefaults({ future, composer: { placement: "overlay" } });
+    expect(partial.composer?.layout).toBe(v5Defaults ? "single-row" : undefined);
+  });
+
+  it("merges partial role sizing above the selected default width", () => {
+    const result = mergeWithDefaults({ future, layout: { messages: { assistant: { maxWidth: "65ch" } } } });
+    expect(result.layout?.messages?.assistant?.maxWidth).toBe("65ch");
+    expect(result.layout?.messages?.assistant?.width).toBe(v5Defaults ? "full" : undefined);
+    expect(result.layout?.messages?.user).toBeUndefined();
   });
 
   it("merges explicit options and nested theme overrides above the selected defaults", () => {
@@ -30,7 +54,7 @@ describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) 
       expandable: false,
     });
     expect(result.theme?.components?.header).toEqual(config.theme.components.header);
-    expect(resolveDefaults({ future }).launcher?.headerIconSize).toBe("40px");
+    expect(resolveDefaults({ future }).launcher?.headerIconSize).toBe(v5Defaults ? "20px" : "40px");
   });
 });
 

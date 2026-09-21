@@ -17,6 +17,17 @@ describe("buildHeader tooltips", () => {
       );
     }
   );
+  it.each([false, true])("preserves legacy numeric glyph sizing for non-pixel icon boxes (v5=%s)", (v5Defaults) => {
+    const { iconHolder } = buildHeader({ config: {
+      apiUrl: "/dispatch", future: { v5Defaults },
+      launcher: { headerIconSize: "2rem", headerIconName: "bot" },
+    } });
+    const glyph = iconHolder.querySelector("svg")!;
+    expect(iconHolder.style.width).toBe("2rem");
+    expect(glyph.getAttribute("width")).toBe("1.2");
+    expect(glyph.style.width).toBe("calc(2px * var(--persona-components-header-iconScale, 0.6))");
+  });
+
   it("uses the shared launcher icon default", () => {
     const { iconHolder } = buildHeader({});
 

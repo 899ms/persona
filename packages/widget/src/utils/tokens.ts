@@ -552,14 +552,13 @@ const DEFAULT_COMPONENTS_BASE: ComponentTokens = {
   },
 };
 
-/**
- * Defaults are shared first and overlaid by version.  The v5 overlays are
- * deliberately value-identical in 4.x until their corresponding rollout PRs
- * land, so selecting the flag is a no-op today without duplicating a full
- * theme tree in the bundle.
- */
+/** Shared defaults with a small opt-in V5 overlay. */
 const DEFAULT_PALETTE_GRAY_V4 = DEFAULT_PALETTE_BASE.colors.gray;
-const DEFAULT_PALETTE_GRAY_V5 = DEFAULT_PALETTE_GRAY_V4;
+const DEFAULT_PALETTE_GRAY_V5 = {
+  50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 300: '#d4d4d4',
+  400: '#a3a3a3', 500: '#737373', 600: '#525252', 700: '#404040',
+  800: '#262626', 900: '#171717', 950: '#0a0a0a',
+};
 
 export const DEFAULT_PALETTE_V4 = {
   ...DEFAULT_PALETTE_BASE,
@@ -568,15 +567,62 @@ export const DEFAULT_PALETTE_V4 = {
 export const DEFAULT_PALETTE_V5 = {
   ...DEFAULT_PALETTE_BASE,
   colors: { ...DEFAULT_PALETTE_BASE.colors, gray: DEFAULT_PALETTE_GRAY_V5 },
+  radius: { none: '0px', sm: '4px', md: '8px', lg: '12px', xl: '16px', '2xl': '24px', full: '9999px' },
 };
 export const DEFAULT_PALETTE = DEFAULT_PALETTE_V4;
 
 export const DEFAULT_SEMANTIC_V4 = DEFAULT_SEMANTIC_BASE;
-export const DEFAULT_SEMANTIC_V5 = DEFAULT_SEMANTIC_V4;
+export const DEFAULT_SEMANTIC_V5: SemanticTokens = {
+  ...DEFAULT_SEMANTIC_BASE,
+  colors: {
+    ...DEFAULT_SEMANTIC_BASE.colors,
+    surface: '#ffffff', background: '#ffffff', container: 'semantic.colors.surface',
+    textInverse: '#ffffff',
+  },
+  typography: { ...DEFAULT_SEMANTIC_BASE.typography, fontSize: '14px', lineHeight: '1.5' },
+};
 export const DEFAULT_SEMANTIC = DEFAULT_SEMANTIC_V4;
 
 export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
-export const DEFAULT_COMPONENTS_V5 = DEFAULT_COMPONENTS_V4;
+export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
+  ...DEFAULT_COMPONENTS_BASE,
+  input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.2xl' },
+  panel: {
+    ...DEFAULT_COMPONENTS_BASE.panel,
+    width: 'min(400px, calc(100vw - 24px))',
+    height: 'min(704px, calc(100dvh - 104px))',
+    borderRadius: 'palette.radius.xl',
+  },
+  header: {
+    ...DEFAULT_COMPONENTS_BASE.header,
+    background: 'semantic.colors.surface', foreground: 'semantic.colors.text',
+    padding: '8px 8px 8px 16px', minimalPadding: '8px 8px 8px 16px',
+    minHeight: '48px', borderBottom: 'none',
+    iconBackground: 'transparent', iconForeground: 'semantic.colors.text', iconScale: '1',
+    controlSize: '28px', controlIconSize: '18px',
+    title: { fontSize: '14px', fontWeight: '600', lineHeight: '1.5' },
+  },
+  message: {
+    ...DEFAULT_COMPONENTS_BASE.message,
+    gap: '20px', fullscreenGap: '28px',
+    user: {
+      ...DEFAULT_COMPONENTS_BASE.message.user,
+      background: 'palette.colors.gray.100', text: 'semantic.colors.text',
+      borderRadius: 'palette.radius.xl', shadow: 'none', padding: '8px 14px',
+      fontSize: '14px', lineHeight: '1.5',
+    },
+    assistant: {
+      ...DEFAULT_COMPONENTS_BASE.message.assistant,
+      background: 'transparent', border: 'transparent', borderWidth: '0px',
+      borderRadius: '0px', shadow: 'none', padding: '0px',
+      fontSize: '14px', lineHeight: '1.55',
+    },
+  },
+  composer: {
+    ...DEFAULT_COMPONENTS_BASE.composer,
+    padding: '8px', fontSize: '15px', lineHeight: '1.5', controlSize: '32px', controlIconSize: '20px',
+  },
+};
 export const DEFAULT_COMPONENTS = DEFAULT_COMPONENTS_V4;
 
 export type ThemeDefaultsVersion = 'v4' | 'v5';
@@ -804,6 +850,11 @@ export function createTheme(
   const suppliedHeader = userConfig?.components?.header;
   if (suppliedHeader?.padding !== undefined && suppliedHeader.minimalPadding === undefined) {
     theme.components.header.minimalPadding = theme.components.header.padding;
+  }
+
+  const suppliedMessage = userConfig?.components?.message;
+  if (suppliedMessage?.gap !== undefined && suppliedMessage.fullscreenGap === undefined) {
+    theme.components.message.fullscreenGap = theme.components.message.gap;
   }
 
   if (options.validate !== false) {
@@ -1323,6 +1374,7 @@ export function themeToCssVariables(theme: PersonaTheme): Record<string, string>
     ['message-user-font-family', 'components-message-user-fontFamily'],
     ['message-user-line-height', 'components-message-user-lineHeight'],
     ['message-assistant-padding', 'components-message-assistant-padding'],
+    ['message-assistant-border-width', 'components-message-assistant-borderWidth'],
     ['message-assistant-max-width', 'components-message-assistant-maxWidth'],
     ['message-assistant-font-size', 'components-message-assistant-fontSize'],
     ['message-assistant-font-family', 'components-message-assistant-fontFamily'],

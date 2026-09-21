@@ -378,13 +378,28 @@ describe("rebuildComposer (composer ctx requestRender)", () => {
       launcher: { enabled: true },
     });
 
-    expect(mount.style.getPropertyValue("--persona-components-panel-height")).toBe("min(640px, max(200px, calc(100vh - 64px)))");
+    expect(mount.style.getPropertyValue("--persona-components-panel-height")).toBe(v5Defaults ? "min(704px, calc(100dvh - 104px))" : "min(640px, max(200px, calc(100vh - 64px)))");
     const panel = mount.querySelector<HTMLElement>(".persona-widget-panel")!;
     expect(panel.style.height).toBe("max(200px, var(--persona-components-panel-height))");
 
     state.ctx!.requestRender();
 
     expect(panel.style.height).toBe("max(200px, var(--persona-components-panel-height))");
+  });
+
+  it.each([false, true])("retains transient connection status through a composer rebuild (v5=%s)", (v5Defaults) => {
+    const { plugin, state } = createGatePlugin();
+    state.gated = false;
+    const { mount, controller } = makeController({
+      plugins: [plugin], future: { v5Defaults },
+      statusIndicator: { mode: "transient", connectingText: "Connecting now" },
+    });
+    controller.injectTestMessage({ type: "status", status: "connecting" });
+    state.ctx!.requestRender();
+    const status = mount.querySelector<HTMLElement>("[data-persona-composer-status]")!;
+    expect(status.style.display).toBe("");
+    expect(status.textContent).toBe("Connecting now");
+    expect(status.nextElementSibling?.matches("[data-persona-composer-form]")).toBe(true);
   });
 
   it("does not stamp copy onto a plugin-owned composer's input", () => {

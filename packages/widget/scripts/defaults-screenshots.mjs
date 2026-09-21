@@ -7,13 +7,17 @@
  *   node scripts/defaults-screenshots.mjs capture after dist
  *   node scripts/defaults-screenshots.mjs compare
  *
- * Captures both defaults states against the saved baseline. The page
+ * Captures both defaults states; comparison defaults to V4 parity once V5
+ * styling diverges. Set PERSONA_COMPARE_DEFAULTS=all to compare both states.
+ * Set PERSONA_ASSERT_V5=1 on an after capture to validate the core V5 geometry.
+ * PERSONA_SCREENSHOT_SCENARIOS and PERSONA_SCREENSHOT_DEFAULTS allow targeted
+ * recaptures without deleting other images in the matrix. The page
  * intentionally avoids suggestion chips because PR 1 has an approved
  * platform-font difference for those chips.
  */
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, rm, stat, readFile } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -41,6 +45,8 @@ const scenarios = [
   "approval",
 ];
 const schemes = ["light", "dark"];
+const defaultsFilter = process.env.PERSONA_SCREENSHOT_DEFAULTS;
+const selectedDefaults = defaultsFilter ? [defaultsFilter] : ["v4", "v5"];
 const scenarioFilter = process.env.PERSONA_SCREENSHOT_SCENARIOS?.split(",");
 const selectedScenarios = scenarioFilter ? scenarios.filter((name) => scenarioFilter.includes(name)) : scenarios;
 
@@ -127,13 +133,13 @@ async function serve(dist) {
 async function capture(label, dist) {
   if (!existsSync(join(dist, "index.global.js"))) throw new Error(`Missing widget distribution: ${dist}`);
   const target = join(outputRoot, label);
-  if (!scenarioFilter) await rm(target, { recursive: true, force: true });
+  if (!scenarioFilter && !defaultsFilter) await rm(target, { recursive: true, force: true });
   await mkdir(target, { recursive: true });
   const server = await serve(dist);
   const port = server.address().port;
   const browser = await chromium.launch({ ...(executablePath ? { executablePath } : {}), headless: true });
   try {
-    for (const defaults of ["v4", "v5"]) for (const scheme of schemes) for (const scenario of selectedScenarios) {
+    for (const defaults of selectedDefaults) for (const scheme of schemes) for (const scenario of selectedScenarios) {
       const mobile = scenario === "mobile";
       const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: scenario === "floating-short" ? 500 : 900 }, deviceScaleFactor: 1, colorScheme: scheme });
       const pageErrors = [];
@@ -166,6 +172,44 @@ async function capture(label, dist) {
         await page.waitForTimeout(350);
         if (await header.getAttribute("aria-expanded") !== "true") throw new Error("Expected expanded tool/reasoning body");
       }
+      if (process.env.PERSONA_ASSERT_V5 === "1" && defaults === "v5" && scenario !== "floating-closed") {
+        const metrics = await page.evaluate(() => {
+          const read = (selector) => {
+            const element = document.querySelector(selector);
+            if (!element) return null;
+            const css = getComputedStyle(element);
+            return { width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height,
+              fontSize: css.fontSize, lineHeight: css.lineHeight, padding: css.padding,
+              borderRadius: css.borderRadius, borderWidth: css.borderWidth, background: css.backgroundColor,
+              gap: css.gap, display: css.display };
+          };
+          return { body: read(".persona-widget-body"), header: read('[data-persona-theme-zone="header"]'), panel: read('.persona-widget-panel'),
+            user: read('.persona-message-row-user .persona-message-bubble'),
+            assistant: read('.persona-message-row-assistant .persona-message-assistant-bubble'),
+            composer: read('[data-persona-composer-form]'), input: read('[data-persona-composer-input]'),
+            status: read('[data-persona-composer-status]'), messages: read('.persona-widget-messages') };
+        });
+        await writeFile(join(target, `${defaults}-${scheme}-${scenario}.json`), JSON.stringify(metrics, null, 2));
+        const check = (condition, message) => { if (!condition) throw new Error(`${scheme}/${scenario}: ${message}\n${JSON.stringify(metrics)}`); };
+        check(metrics.header?.height === 48, "expected 48px header");
+        check(metrics.input?.fontSize === "15px", "expected 15px composer input");
+        check(metrics.composer?.borderRadius === "24px", "expected pill radius");
+        check(metrics.status?.display === "none", "idle status must be hidden");
+        if (metrics.user) {
+          check(metrics.user.borderRadius === "16px", "expected 16px user radius");
+          check(metrics.user.padding === "8px 14px", "expected user padding");
+          check(metrics.user.fontSize === "14px", "expected 14px user type");
+          check(metrics.user.background !== metrics.body?.background, "user tint must differ from transcript");
+        }
+        if (metrics.assistant) {
+          check(metrics.assistant.fontSize === "14px", "expected 14px assistant type");
+          check(metrics.assistant.borderWidth === "0px", "assistant must be flat");
+        }
+        if (scenario === "floating-open" || scenario === "floating-short") {
+          check(metrics.panel.width === 400, "expected 400px floating panel");
+          check(metrics.panel.height === (scenario === "floating-short" ? 396 : 704), "unexpected floating panel height");
+        }
+      }
       if (pageErrors.length) throw pageErrors[0];
       await page.screenshot({ path: join(target, `${defaults}-${scheme}-${scenario}.png`), fullPage: true });
       await page.close();
@@ -174,7 +218,7 @@ async function capture(label, dist) {
     await browser.close();
     await new Promise((done) => server.close(done));
   }
-  console.log(`Captured ${2 * selectedScenarios.length * schemes.length} screenshots in ${target}`);
+  console.log(`Captured ${selectedDefaults.length * selectedScenarios.length * schemes.length} screenshots in ${target}`);
 }
 
 async function pngs(directory) {
@@ -185,7 +229,9 @@ async function compare() {
   const before = join(outputRoot, "before");
   const after = join(outputRoot, "after");
   if (!existsSync(before) || !existsSync(after)) throw new Error("Capture both before and after first.");
-  const names = await pngs(before);
+  const defaultsFilter = process.env.PERSONA_COMPARE_DEFAULTS ?? "v4";
+  const names = (await pngs(before)).filter((name) => defaultsFilter === "all" || name.startsWith(`${defaultsFilter}-`));
+  if (!names.length) throw new Error(`No baseline screenshots for defaults=${defaultsFilter}`);
   const changed = [];
   for (const name of names) {
     const afterPath = join(after, name);

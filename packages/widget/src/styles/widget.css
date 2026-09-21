@@ -3340,6 +3340,7 @@
 .persona-message-assistant-bubble {
   border-radius: var(--persona-message-assistant-radius, var(--persona-radius-lg, 0.5rem));
   border-color: var(--persona-message-assistant-border, var(--persona-border, #e5e7eb));
+  border-width: var(--persona-message-assistant-border-width, 1px);
 }
 
 [data-persona-root] .persona-message-assistant-bubble.persona-shadow-sm {

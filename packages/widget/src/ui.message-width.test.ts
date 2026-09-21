@@ -135,6 +135,21 @@ describe("createAgentExperience: role-specific message width", () => {
     controller.destroy();
   });
 
+  it.each([false, true])("allows explicit max-width tokens on full rows with v5Defaults=%s", (v5Defaults) => {
+    const mount = createMount();
+    const controller = createController(mount, {
+      future: { v5Defaults },
+      theme: { components: { message: { assistant: { maxWidth: "65ch" } } } },
+      layout: { messages: { assistant: { width: "full" } } },
+    });
+    injectMessage(controller, { id: "token-width", role: "assistant", content: "Response" });
+    expectRowLayout(getRow(mount, "token-width"), {
+      role: "assistant", width: "full", maxWidth: "var(--persona-message-assistant-max-width, 100%)",
+    });
+    expect(mount.style.getPropertyValue("--persona-message-assistant-max-width")).toBe("65ch");
+    controller.destroy();
+  });
+
   it("configures user and assistant geometry independently", () => {
     const mount = createMount();
     const controller = createController(mount, {
@@ -165,7 +180,7 @@ describe("createAgentExperience: role-specific message width", () => {
     expectRowLayout(getRow(mount, "assistant-full"), {
       role: "assistant",
       width: "full",
-      maxWidth: "100%",
+      maxWidth: "var(--persona-message-assistant-max-width, 100%)",
     });
 
     controller.destroy();
@@ -316,7 +331,7 @@ describe("createAgentExperience: role-specific message width", () => {
     expectRowLayout(userRow, {
       role: "user",
       width: "full",
-      maxWidth: "100%",
+      maxWidth: "var(--persona-message-user-max-width, 100%)",
     });
     expect(userRow.querySelector(":scope > [data-custom-user]")).not.toBeNull();
 

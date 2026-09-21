@@ -1,3 +1,4 @@
+import { applyStatusIndicatorState, placeStatusIndicator } from "./utils/status-indicator";
 import { usesSessionVoice } from "./utils/voice-support";
 import { escapeHtml, createMarkdownProcessorFromConfig } from "./postprocessors";
 import { resolveSanitizer } from "./utils/sanitize";
@@ -1363,7 +1364,7 @@ export const createAgentExperience = (
 
   // Get status indicator config
   const statusConfig = config.statusIndicator ?? {};
-  const _getStatusText = (status: AgentWidgetSessionStatus): string => {
+  const _getStatusText = (status: AgentWidgetSessionStatus, statusConfig = config.statusIndicator ?? {}): string => {
     if (status === "idle") return statusConfig.idleText ?? statusCopy.idle;
     if (status === "connecting") return statusConfig.connectingText ?? statusCopy.connecting;
     if (status === "connected") return statusConfig.connectedText ?? statusCopy.connected;
@@ -1375,6 +1376,10 @@ export const createAgentExperience = (
 
   /** Update statusText element, rendering a link for idle status when idleLink is configured. */
   function applyStatusToElement(el: HTMLElement, text: string, statusCfg: typeof statusConfig, status: string): void {
+    if (!isComposerBar() && (statusCfg.mode === "transient" || el.classList.contains("persona-mb-2"))) {
+      placeStatusIndicator(el, composerForm, statusCfg);
+      applyStatusIndicatorState(el, statusCfg, status);
+    }
     // A composer lock reason owns the status region until the lock clears.
     if (el.hasAttribute(COMPOSER_REASON_ATTR)) return;
     if (status === "idle" && statusCfg.idleLink) {
@@ -4037,6 +4042,12 @@ export const createAgentExperience = (
   // Apply full-height and sidebar styles if enabled
   // This ensures the widget fills its container height with proper flex layout
   const applyFullHeightStyles = () => {
+    const fullScreenTranscript = isMobileFullscreenActive() ||
+      (isComposerBar() && config.launcher?.composerBar?.expandedSize === "fullscreen") ||
+      (config.launcher?.fullHeight === true && !config.launcher?.sidebarMode && !isDockedMountMode(config));
+    messagesWrapper.style.gap = fullScreenTranscript
+      ? "var(--persona-components-message-fullscreenGap, var(--persona-components-message-gap, 12px))"
+      : "var(--persona-components-message-gap, 12px)";
     // Composer-bar mode owns its own sizing/chrome. Geometry comes from
     // `applyComposerBarGeometry()` (per-state inline on the wrapper), the
     // pill carries its own chrome via `.persona-pill-composer`, and the
@@ -6210,7 +6221,9 @@ export const createAgentExperience = (
     // Only an explicit config value is stamped inline; the 85%/100% defaults
     // live in widget.css so `components.message.<role>.maxWidth` can win.
     const maxWidth =
-      roleLayout?.maxWidth ?? (width === "full" ? "100%" : undefined);
+      roleLayout?.maxWidth ?? (width === "full"
+        ? `var(--persona-message-${sizingRole}-max-width, 100%)`
+        : undefined);
 
     wrapper.classList.add("persona-message-row");
     wrapper.classList.remove(
@@ -8065,6 +8078,7 @@ export const createAgentExperience = (
       statusText.setAttribute("aria-live", "polite");
       statusText.setAttribute(COMPOSER_REASON_ATTR, "");
       statusText.textContent = reason;
+      applyStatusIndicatorState(statusText, config.statusIndicator ?? {}, "idle");
       return;
     }
     if (!statusText.hasAttribute(COMPOSER_REASON_ATTR)) return;
@@ -11653,6 +11667,7 @@ export const createAgentExperience = (
     statusText.setAttribute("role", "status");
     statusText.setAttribute("aria-live", "polite");
     statusText.textContent = text;
+    applyStatusIndicatorState(statusText, config.statusIndicator ?? {}, "idle");
     if (composerNoticeTimer) clearTimeout(composerNoticeTimer);
     composerNoticeTimer = setTimeout(() => {
       composerNoticeTimer = null;
@@ -13463,6 +13478,10 @@ export const createAgentExperience = (
       updateCopy();
       renderSuggestions();
       setComposerDisabled(session.isStreaming());
+      if (config.statusIndicator?.mode === "transient" && !isComposerBar()) {
+        const status = session.getStatus();
+        applyStatusToElement(statusText, _getStatusText(status), config.statusIndicator, status);
+      }
       // The rebuilt mic is stamped idle by its builder. A rebuild mid-recording
       // has to restore the live state, which also re-arms the level loop
       // against the new footer and wrapper.
@@ -13634,6 +13653,7 @@ export const createAgentExperience = (
 
   const controller: Controller = {
     update(nextConfig: AgentWidgetConfigPatch) {
+      const previousDefaultsVersion = config.future?.v5Defaults === true;
       const previousToolCallConfig = config.toolCall;
       const previousMessageActions = config.messageActions;
       const previousLayoutMessages = config.layout?.messages;
@@ -13907,7 +13927,8 @@ export const createAgentExperience = (
         || (config.features?.showToolCalls ?? true) !== (previousShowToolCalls ?? true)
         || JSON.stringify(config.features?.toolCallDisplay) !== JSON.stringify(previousToolCallDisplay)
         || JSON.stringify(config.features?.reasoningDisplay) !== JSON.stringify(previousReasoningDisplay);
-      const messagesConfigChanged = toolCallConfigChanged || messageActionsChanged || layoutMessagesChanged
+      const messagesConfigChanged = (config.future?.v5Defaults === true) !== previousDefaultsVersion
+        || toolCallConfigChanged || messageActionsChanged || layoutMessagesChanged
         || loadingIndicatorChanged || iterationDisplayChanged || featuresChanged;
       if (messagesConfigChanged && session) {
         configVersion++;
@@ -13985,6 +14006,8 @@ export const createAgentExperience = (
             const iconSize = parseFloat(headerIconSize) || 24;
             const iconSvg = renderLucideIcon(headerIconName, iconSize * 0.6, "currentColor", 1);
             if (iconSvg) {
+              iconSvg.style.width = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
+              iconSvg.style.height = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
               iconHolder.replaceChildren(iconSvg);
             } else {
               // Fallback to agentIconText if Lucide icon fails
@@ -14945,8 +14968,8 @@ export const createAgentExperience = (
 
       // Update status indicator visibility and text
       const statusIndicatorConfig = config.statusIndicator ?? {};
-      const isVisible = statusIndicatorConfig.visible ?? true;
-      statusText.style.display = isVisible ? "" : "none";
+      placeStatusIndicator(statusText, composerForm, statusIndicatorConfig);
+      applyStatusIndicatorState(statusText, statusIndicatorConfig, session?.getStatus() ?? "idle");
 
       // Update status text if status is currently set
       if (session) {
@@ -14956,6 +14979,8 @@ export const createAgentExperience = (
           if (s === "connecting") return statusIndicatorConfig.connectingText ?? statusCopy.connecting;
           if (s === "connected") return statusIndicatorConfig.connectedText ?? statusCopy.connected;
           if (s === "error") return statusIndicatorConfig.errorText ?? statusCopy.error;
+          if (s === "paused") return statusIndicatorConfig.pausedText ?? statusCopy.paused;
+          if (s === "resuming") return statusIndicatorConfig.resumingText ?? statusCopy.resuming;
           return statusCopy[s];
         };
         applyStatusToElement(statusText, getCurrentStatusText(currentStatus), statusIndicatorConfig, currentStatus);

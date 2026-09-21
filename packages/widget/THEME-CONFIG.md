@@ -1471,9 +1471,43 @@ createAgentExperience(mountElement, {
 ```
 
 The flag selects defaults only. Explicit widget configuration and explicit theme
-tokens still take precedence. The v4 and v5 tables currently have the same
-values, so enabling it does not change the rendered theme yet. Theme utilities
-accept the same selection when resolving a theme outside a widget:
+tokens still take precedence. The opt-in currently changes the core transcript,
+header, composer, and panel defaults. The real dark palette, circle launcher,
+centered welcome, and activity rows arrive in later phases.
+
+| Setting | V4 default | V5 default |
+|---|---|---|
+| Body type | 16px / 1.5 | 14px / 1.5 |
+| Assistant message | Bordered bubble | Flat, 14px / 1.55 |
+| User message | Solid primary bubble | Neutral tint, 16px radius, `8px 14px` padding |
+| Header | Primary surface, subtitle, 40px icon box | 48px strip, no subtitle, unboxed 20px icon |
+| Header padding | `20px 24px` | `8px 8px 8px 16px` |
+| Header controls / glyphs | 32px / 20px | 28px / 18px |
+| `composer.layout` | `"stacked"` | `"single-row"` |
+| Composer input / controls | 14px / 40px | 15px / 32px |
+| Floating panel | 440px, viewport-clamped 640px height | 400px, `min(704px, 100dvh - 104px)` height |
+| Turn gap | 12px | 20px; 28px in full-height/fullscreen views |
+| `layout.contentMaxWidth` | Unset | 768px where supported |
+| `statusIndicator.mode` | `"always"` | `"transient"` |
+
+Floating widths still shrink to fit narrow viewports. Dock/sidebar defaults are
+400px under v5 and remain 420px under v4. Compact composer fallbacks
+(wrapped text, chips, attachments, quotes) retain the v5 24px radius and 32px
+controls. `components.message.fullscreenGap` sets full-height/fullscreen spacing;
+an explicit `components.message.gap` supplies both gaps unless `fullscreenGap`
+is also provided. `components.header.iconScale` controls glyph size relative to
+the header icon box (v4: 0.6, v5: 1), and
+`components.message.assistant.borderWidth` can remove the assistant border
+(v5: `"0px"`). These tokens work in either state.
+
+`statusIndicator.mode: "transient"` places connection status above the composer
+and shows it only while connecting, paused for reconnect, resuming, or in error.
+`"always"` retains the status beneath the composer. Explicit `visible: false`
+hides either mode; composer lock reasons and temporary notices remain readable
+when the status region is enabled. Composer-bar mode retains its separate pill
+behavior.
+
+Theme utilities accept the same selection when resolving a theme outside a widget:
 
 ```typescript
 createTheme(overrides, { future: { v5Defaults: true } });

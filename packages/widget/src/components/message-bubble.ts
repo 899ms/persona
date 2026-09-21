@@ -18,6 +18,7 @@ import {
   StopReasonKind
 } from "../types";
 import type { MessageGeometryTokens } from "../types/theme";
+import { resolveThemeDefaults } from "../utils/tokens";
 import { createMentionTokenElement } from "../utils/mention-token";
 import { createIconButton } from "../utils/buttons";
 import { renderLucideIcon } from "../utils/icons";
@@ -1002,12 +1003,15 @@ export const createStandardBubble = (
 
   bubble.setAttribute("data-persona-theme-zone", message.role === "user" ? "user-message" : "assistant-message");
 
+  const defaultMessageTokens = resolveThemeDefaults(options?.widgetConfig?.future).components.message;
   const messageTokens = options?.widgetConfig?.theme?.components?.message;
   applyBubbleGeometry(
     bubble,
     message.role,
     layout,
-    message.role === "user" ? messageTokens?.user : messageTokens?.assistant
+    message.role === "user"
+      ? { ...defaultMessageTokens.user, ...messageTokens?.user, ...options?.widgetConfig?.darkTheme?.components?.message?.user }
+      : { ...defaultMessageTokens.assistant, ...messageTokens?.assistant, ...options?.widgetConfig?.darkTheme?.components?.message?.assistant }
   );
 
   // Apply component-level color overrides via CSS variables

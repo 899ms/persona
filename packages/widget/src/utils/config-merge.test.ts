@@ -339,3 +339,44 @@ describe.each([false, true])("mergeConfigUpdate (v5=%s)", (v5Defaults) => {
     expect(again).toEqual(merged);
   });
 });
+
+
+describe("live defaults version changes", () => {
+  const base = (config: Partial<AgentWidgetConfig> = {}) =>
+    mergeWithDefaults({ apiUrl: "/api", ...config }) as AgentWidgetConfig;
+
+  it("moves inherited defaults in both directions and resets a cleared future flag", () => {
+    const v5 = mergeConfigUpdate(base(), { future: { v5Defaults: true } });
+    expect(v5.launcher?.headerIconSize).toBe("20px");
+    expect(v5.layout?.header?.showSubtitle).toBe(false);
+    expect(v5.composer?.layout).toBe("single-row");
+    expect(v5.statusIndicator?.mode).toBe("transient");
+    const v4 = mergeConfigUpdate(v5, { future: undefined });
+    expect(v4.launcher?.headerIconSize).toBe("40px");
+    expect(v4.layout?.header?.showSubtitle).toBe(true);
+    expect(v4.composer?.layout).toBeUndefined();
+    expect(v4.statusIndicator?.mode).toBeUndefined();
+    const v5Again = mergeConfigUpdate(v4, { future: { v5Defaults: true } });
+    expect(v5Again.layout?.messages?.assistant?.width).toBe("full");
+    expect(v5Again.composer?.layout).toBe("single-row");
+  });
+
+  it("retains host choices even when they equal a previous version default", () => {
+    const initial = base({ launcher: { headerIconSize: "40px" }, layout: { header: { showSubtitle: true } } });
+    const v5 = mergeConfigUpdate(initial, { future: { v5Defaults: true } });
+    expect(v5.launcher?.headerIconSize).toBe("40px");
+    expect(v5.layout?.header?.showSubtitle).toBe(true);
+    const reset = mergeConfigUpdate(v5, { launcher: { headerIconSize: undefined }, layout: { header: undefined } });
+    expect(reset.launcher?.headerIconSize).toBe("20px");
+    expect(reset.layout?.header?.showSubtitle).toBe(false);
+    expect(initial.launcher?.headerIconSize).toBe("40px");
+  });
+
+  it("preserves live overrides and normal config spreads across version changes", () => {
+    const edited = mergeConfigUpdate(base(), { composer: { layout: "stacked" }, statusIndicator: { mode: "always" } });
+    const v5 = mergeConfigUpdate({ ...edited }, { future: { v5Defaults: true } });
+    expect(v5.composer?.layout).toBe("stacked");
+    expect(v5.statusIndicator?.mode).toBe("always");
+    expect(v5.launcher?.headerIconSize).toBe("20px");
+  });
+});

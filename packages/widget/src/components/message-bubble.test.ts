@@ -359,6 +359,20 @@ describe("createStandardBubble: components.message geometry tokens", () => {
     });
   });
 
+  it.each([false, true])("consumes selected default geometry with v5Defaults=%s", (v5Defaults) => {
+    for (const role of ["user", "assistant"] as const) {
+      const bubble = createStandardBubble(
+        makeMessage({ id: `default-${role}`, role, content: "Hi" }),
+        ({ text }) => text, undefined, undefined, undefined,
+        { widgetConfig: { future: { v5Defaults } } as AgentWidgetConfig }
+      );
+      expect(bubble.style.padding).toBe(v5Defaults
+        ? `var(--persona-message-${role}-padding, 0.75rem 1.25rem)` : "");
+      expect(bubble.style.lineHeight).toBe(v5Defaults
+        ? `var(--persona-message-${role}-line-height, 1.75)` : "");
+    }
+  });
+
   it("routes each configured property through its role token with the bubble preset as fallback", () => {
     const bubble = createStandardBubble(
       makeMessage({ id: "geo-user", role: "user", content: "Hi" }),

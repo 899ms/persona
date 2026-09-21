@@ -16,8 +16,8 @@ describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
     it('resolves an explicit overlay version while preserving explicit token precedence', () => {
       const future = { v5Defaults };
       expect(resolveThemeDefaultsVersion(future)).toBe(v5Defaults ? 'v5' : 'v4');
-      expect(resolveThemeDefaults(future).palette.colors.gray).toEqual(
-        resolveThemeDefaults().palette.colors.gray
+      expect(resolveThemeDefaults(future).palette.colors.gray[500]).toBe(
+        v5Defaults ? '#737373' : '#6b7280'
       );
 
       const theme = createTheme(
@@ -27,16 +27,52 @@ describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
       expect(theme.palette.colors.gray[500]).toBe('#123456');
     });
 
-    it('materializes the phase-three token defaults without changing either defaults state', () => {
+    it('materializes the selected version geometry defaults', () => {
       const css = themeToCssVariables(createTheme(undefined, { future: { v5Defaults }, validate: false }));
-      expect(css['--persona-components-header-padding']).toBe('20px 24px');
-      expect(css['--persona-components-header-minimalPadding']).toBe('16px 24px');
-      expect(css['--persona-components-message-gap']).toBe('12px');
-      expect(css['--persona-components-panel-width']).toBe('min(440px, calc(100vw - 24px))');
+      expect(css['--persona-components-header-padding']).toBe(v5Defaults ? '8px 8px 8px 16px' : '20px 24px');
+      expect(css['--persona-components-header-minimalPadding']).toBe(v5Defaults ? '8px 8px 8px 16px' : '16px 24px');
+      expect(css['--persona-components-message-gap']).toBe(v5Defaults ? '20px' : '12px');
+      expect(css['--persona-components-panel-width']).toBe(v5Defaults ? 'min(400px, calc(100vw - 24px))' : 'min(440px, calc(100vw - 24px))');
       expect(css['--persona-components-panel-height']).toBe(
-        'min(640px, max(200px, calc(100vh - 64px)))'
+        v5Defaults ? 'min(704px, calc(100dvh - 104px))' : 'min(640px, max(200px, calc(100vh - 64px)))'
       );
       expect(css['--persona-components-panel-modes-mobile-borderRadius']).toBe('0');
+    });
+
+    it('keeps explicit geometry and typography above the version overlay', () => {
+      const css = themeToCssVariables(createTheme({ components: {
+        message: { user: { padding: '4px', borderRadius: '7px' }, assistant: { borderWidth: '2px', lineHeight: '1.8' } },
+        composer: { fontSize: '17px', controlSize: '36px' },
+        input: { borderRadius: '9px' },
+        header: { controlSize: '34px', iconScale: '0.75' },
+      } }, { future: { v5Defaults }, validate: false }));
+      expect(css['--persona-message-user-padding']).toBe('4px');
+      expect(css['--persona-message-user-radius']).toBe('7px');
+      expect(css['--persona-message-assistant-border-width']).toBe('2px');
+      expect(css['--persona-message-assistant-line-height']).toBe('1.8');
+      expect(css['--persona-composer-font-size']).toBe('17px');
+      expect(css['--persona-composer-control-size']).toBe('36px');
+      expect(css['--persona-input-radius']).toBe('9px');
+    });
+
+    it('uses an explicit shared turn gap in fullscreen unless separately overridden', () => {
+      const shared = createTheme({ components: { message: { gap: '13px' } } }, { future: { v5Defaults }, validate: false });
+      expect(shared.components.message.fullscreenGap).toBe('13px');
+      const specific = createTheme({ components: { message: { gap: '13px', fullscreenGap: '31px' } } }, { future: { v5Defaults }, validate: false });
+      expect(specific.components.message.fullscreenGap).toBe('31px');
+    });
+
+    it('keeps the transcript surface separate from the tinted user bubble', () => {
+      const css = themeToCssVariables(createTheme(undefined, { future: { v5Defaults }, validate: false }));
+      expect(css['--persona-container']).toBe(v5Defaults ? '#ffffff' : '#f9fafb');
+      expect(css['--persona-message-user-bg']).toBe(v5Defaults ? '#f5f5f5' : '#171717');
+    });
+
+    it('keeps palette radius overrides connected to panel, user bubble, and composer', () => {
+      const css = themeToCssVariables(createTheme({ palette: { radius: { lg: '3px', xl: '7px', '2xl': '11px' } } }, { future: { v5Defaults }, validate: false }));
+      expect(css['--persona-panel-radius']).toBe('7px');
+      expect(css['--persona-message-user-radius']).toBe(v5Defaults ? '7px' : '3px');
+      expect(css['--persona-input-radius']).toBe(v5Defaults ? '11px' : '3px');
     });
 
     it('derives minimal header padding from an explicit shared padding unless overridden', () => {
@@ -56,9 +92,9 @@ describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
     it('emits prefixed collapsible-widget chrome aliases and legacy aliases', () => {
       const css = themeToCssVariables(createTheme(undefined, { future: { v5Defaults }, validate: false }));
 
-      expect(css['--persona-cw-container']).toBe('#f9fafb');
-      expect(css['--persona-cw-surface']).toBe('#f9fafb');
-      expect(css['--persona-cw-border']).toBe('#e5e7eb');
+      expect(css['--persona-cw-container']).toBe(v5Defaults ? '#fafafa' : '#f9fafb');
+      expect(css['--persona-cw-surface']).toBe(v5Defaults ? '#ffffff' : '#f9fafb');
+      expect(css['--persona-cw-border']).toBe(v5Defaults ? '#e5e5e5' : '#e5e7eb');
       expect(css['--cw-container']).toBe(css['--persona-cw-container']);
       expect(css['--cw-surface']).toBe(css['--persona-cw-surface']);
       expect(css['--cw-border']).toBe(css['--persona-cw-border']);

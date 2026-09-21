@@ -102,6 +102,8 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
       const iconSize = parseFloat(headerIconSize) || 24;
       const iconSvg = renderLucideIcon(headerIconName, iconSize * 0.6, "currentColor", 1);
       if (iconSvg) {
+        iconSvg.style.width = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
+        iconSvg.style.height = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
         iconHolder.replaceChildren(iconSvg);
       } else {
         // Fallback to agentIconText if Lucide icon fails

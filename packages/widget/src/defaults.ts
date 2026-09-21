@@ -1,6 +1,7 @@
 import type { AgentWidgetConfig, AgentWidgetLauncherConfig } from "./types";
 import type { DeepPartial, PersonaTheme } from "./types/theme";
 import { deepMerge } from "./utils/deep-merge";
+import { inheritDefaultProvenance } from "./utils/defaults-provenance";
 import { inheritPanelAliasProvenance } from "./utils/panel-config";
 import {
   DEFAULT_TOOLTIP_DELAY_MS,
@@ -255,9 +256,21 @@ export const DEFAULTS_BASE: Partial<AgentWidgetConfig> = {
   debug: false,
 };
 
-/** Version-specific defaults; V5 starts equal to V4 until its staged rollout. */
+/** Version-specific defaults, selected by the staged V5 opt-in. */
 export const DEFAULTS_V4: Partial<AgentWidgetConfig> = {};
-export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {};
+export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {
+  launcher: {
+    width: "min(400px, calc(100vw - 24px))",
+    headerIconSize: "20px",
+  },
+  composer: { layout: "single-row" },
+  statusIndicator: { mode: "transient" },
+  layout: {
+    contentMaxWidth: "768px",
+    header: { showSubtitle: false },
+    messages: { assistant: { width: "full" } },
+  },
+};
 
 export type DefaultsVersion = "v4" | "v5";
 
@@ -299,9 +312,9 @@ export function mergeWithDefaults(
   config?: Partial<AgentWidgetConfig>
 ): Partial<AgentWidgetConfig> {
   const defaults = resolveDefaults(config);
-  if (!config) return inheritPanelAliasProvenance(defaults);
+  if (!config) return inheritDefaultProvenance(inheritPanelAliasProvenance(defaults), undefined, DEFAULTS_V5);
 
-  return inheritPanelAliasProvenance({
+  return inheritDefaultProvenance(inheritPanelAliasProvenance({
     ...defaults,
     ...config,
     theme: mergeThemePartials(defaults.theme, config.theme),
@@ -318,6 +331,10 @@ export function mergeWithDefaults(
         ...config.launcher?.clearChat,
       },
     },
+    ...((defaults.composer || config.composer) ? { composer: {
+      ...defaults.composer,
+      ...config.composer,
+    } } : {}),
     tooltip: {
       ...defaults.tooltip,
       ...config.tooltip,
@@ -439,6 +456,18 @@ export function mergeWithDefaults(
       messages: {
         ...defaults.layout?.messages,
         ...config.layout?.messages,
+        ...((defaults.layout?.messages?.user || config.layout?.messages?.user) ? {
+          user: {
+            ...defaults.layout?.messages?.user,
+            ...config.layout?.messages?.user,
+          },
+        } : {}),
+        ...((defaults.layout?.messages?.assistant || config.layout?.messages?.assistant) ? {
+          assistant: {
+            ...defaults.layout?.messages?.assistant,
+            ...config.layout?.messages?.assistant,
+          },
+        } : {}),
         avatar: {
           ...defaults.layout?.messages?.avatar,
           ...config.layout?.messages?.avatar,
@@ -465,5 +494,6 @@ export function mergeWithDefaults(
       ...defaults.messageActions,
       ...config.messageActions,
     },
-  }, config);
+  }, config), config, DEFAULTS_V5);
+
 }

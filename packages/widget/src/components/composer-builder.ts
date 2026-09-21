@@ -144,7 +144,11 @@ export const buildComposer = (context: ComposerBuildContext): ComposerElements =
     }
   });
 
-  footer.append(suggestions, composerForm, statusText);
+  if (config?.statusIndicator?.mode === "transient") {
+    footer.append(suggestions, statusText, composerForm);
+  } else {
+    footer.append(suggestions, composerForm, statusText);
+  }
 
   return {
     footer,

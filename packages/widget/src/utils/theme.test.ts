@@ -1327,3 +1327,13 @@ describe('theme utils', () => {
     expect(explicit['--persona-md-code-block-border-radius']).toBe('2px');
   });
 });
+
+
+describe.each([false, true])('versioned panel mode widths (v5=%s)', (v5Defaults) => {
+  it.each(['docked', 'sidebar'] as const)('uses version defaults and explicit widths in %s', (mode) => {
+    const config = { apiUrl: '/api', future: { v5Defaults }, launcher: mode === 'docked' ? { mountMode: 'docked' as const } : { sidebarMode: true } };
+    expect(getActiveTheme(config).components.panel.width).toBe(v5Defaults ? '400px' : '420px');
+    expect(getActiveTheme({ ...config, theme: { components: { panel: { width: '510px' } } } }).components.panel.width).toBe('510px');
+    expect(getActiveTheme({ ...config, colorScheme: 'dark', darkTheme: { components: { panel: { width: '530px' } } } }).components.panel.width).toBe('530px');
+  });
+});

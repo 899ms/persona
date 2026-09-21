@@ -280,6 +280,8 @@ export interface HeaderTokens extends ComponentTokenSet {
   iconBackground: TokenReference<'color'>;
   /** Foreground (glyph stroke or emoji text) on the header avatar tile. */
   iconForeground: TokenReference<'color'>;
+  /** Header identity glyph size as a fraction of its icon box. @default "0.6" */
+  iconScale?: string;
   /**
    * Legacy alias of `title.color`; `title.color` wins when both are set.
    * Unset, the title takes `foreground`, then the primary color.
@@ -499,6 +501,8 @@ export interface MessageGeometryTokens {
 export interface MessageTokens {
   /** Vertical gap between transcript turns. @default "12px" */
   gap?: string;
+  /** Gap between turns in fullscreen mode; falls back to `gap`. */
+  fullscreenGap?: string;
   user: MessageGeometryTokens & {
     background: TokenReference<'color'>;
     text: TokenReference<'color'>;
@@ -512,6 +516,8 @@ export interface MessageTokens {
     borderRadius: TokenReference<'radius'>;
     /** Assistant bubble border color (CSS color). */
     border?: TokenReference<'color'>;
+    /** Border width; set to 0px for a flat assistant response. @default "1px" */
+    borderWidth?: string;
     /** Assistant bubble box-shadow (token ref or raw CSS, e.g. `none`). */
     shadow?: string;
   };

@@ -34,7 +34,12 @@ describe("theme editor scroll-to-bottom controls", () => {
     }, { v5Defaults: true })).toBe(
       resolveThemeDefaults({ v5Defaults: true }).semantic.colors.surface
     );
-    expect(v5Tabs).toEqual(v4Tabs);
+    const v5HeaderIcon = v5Tabs.flatMap((tab) => tab.sections)
+      .flatMap((section) => section.fields)
+      .find((field) => field.path === "launcher.headerIconSize");
+    expect(v5HeaderIcon?.defaultValue).toBe("20px");
+    expect(headerIcon?.defaultValue).toBe("40px");
+    expect(v5Tabs.map((tab) => tab.id)).toEqual(v4Tabs.map((tab) => tab.id));
   });
 
   it("exposes clear style semantics and independent role width controls", () => {

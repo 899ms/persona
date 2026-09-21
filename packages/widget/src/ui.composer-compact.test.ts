@@ -7,6 +7,8 @@ import { createAgentExperience } from "./ui";
 const mounts: HTMLElement[] = [];
 const controllers: ReturnType<typeof createAgentExperience>[] = [];
 
+let selectedDefaults = false;
+
 const makeController = (config: Record<string, unknown> = {}) => {
   const mount = document.createElement("div");
   document.body.appendChild(mount);
@@ -15,6 +17,7 @@ const makeController = (config: Record<string, unknown> = {}) => {
     apiUrl: "https://api.example.com/chat",
     launcher: { enabled: false },
     persistState: false,
+    future: { v5Defaults: selectedDefaults },
     suggestionChips: [],
     ...config,
   } as unknown as Parameters<typeof createAgentExperience>[1]);
@@ -68,12 +71,17 @@ const capturingFetch = () =>
       }),
     }) as unknown as Response;
 
-describe("composer compact state", () => {
+describe.each([false, true])("composer compact state (v5Defaults: %s)", (v5Defaults) => {
   beforeEach(() => {
+    selectedDefaults = v5Defaults;
     window.scrollTo = vi.fn();
   });
 
   afterEach(() => {
+    if (v5Defaults) for (const mount of mounts) {
+      expect(mount.style.getPropertyValue("--persona-input-radius")).toBe("24px");
+      expect(mount.style.getPropertyValue("--persona-composer-control-size")).toBe("32px");
+    }
     controllers.splice(0).forEach((controller) => {
       try {
         controller.destroy();

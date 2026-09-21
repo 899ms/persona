@@ -1,3 +1,4 @@
+import { applyStatusIndicatorState } from "../utils/status-indicator";
 import { createElement, createNode, cx } from "../utils/dom";
 import { renderLucideIcon } from "../utils/icons";
 import { AgentWidgetConfig } from "../types";
@@ -538,8 +539,7 @@ export const createStatusText = (config?: AgentWidgetConfig): HTMLElement => {
   );
   statusText.setAttribute("data-persona-composer-status", "");
 
-  const isVisible = statusConfig.visible ?? true;
-  statusText.style.display = isVisible ? "" : "none";
+  applyStatusIndicatorState(statusText, statusConfig, "idle");
   const idleLabel = statusConfig.idleText ?? "Online";
   if (statusConfig.idleLink) {
     const link = createElement("a") as HTMLAnchorElement;

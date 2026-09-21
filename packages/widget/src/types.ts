@@ -4530,7 +4530,14 @@ export type AgentWidgetClearChatConfig = {
 };
 
 export type AgentWidgetStatusIndicatorConfig = {
+  /** Show the indicator. Explicit false also hides transient connection states. */
   visible?: boolean;
+  /**
+   * "always" shows status beneath the composer; "transient" shows connecting,
+   * reconnecting, and error status above it, hiding normal idle/streaming status.
+   * Available in both defaults states. Default: "always" in v4, "transient" in v5.
+   */
+  mode?: "always" | "transient";
   /** Text alignment. Default: 'right'. */
   align?: 'left' | 'center' | 'right';
   idleText?: string;

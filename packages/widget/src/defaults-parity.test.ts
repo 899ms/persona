@@ -106,11 +106,11 @@ const resolveComputedTokens = (value: DefaultsSnapshot): DefaultsSnapshot => ({
   ) as DefaultsSnapshot["computedStyles"],
 });
 
-describe.each([false, true])("4.22.0 defaults parity (v5=%s)", (v5Defaults) => {
+describe("4.22.0 defaults parity (flag off)", () => {
   it("matches the committed baseline", () => {
     // JSON is deliberately the fixture format: it makes omitted/undefined
     // config and token values deterministic across Node versions.
-    const actual = JSON.parse(JSON.stringify(snapshot(v5Defaults)));
+    const actual = JSON.parse(JSON.stringify(snapshot(false)));
     const baseline = JSON.parse(readFileSync(fixturePath, "utf8"));
     // Phase 3 activates formerly unused tokens. Lock their old and new values
     // explicitly instead of rewriting the historical fixture or ignoring keys.

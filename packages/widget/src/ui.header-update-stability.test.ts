@@ -105,7 +105,7 @@ describe("header stability across unrelated updates", () => {
       "var(--persona-components-header-padding, 20px 24px)"
     );
     expect(mount.style.getPropertyValue("--persona-components-header-padding")).toBe(
-      "20px 24px"
+      v5Defaults ? "8px 8px 8px 16px" : "20px 24px"
     );
 
     controller.update({ theme: { components: { header: { padding: "12px 16px" } } } });
