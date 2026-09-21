@@ -731,6 +731,12 @@ type Controller = {
    * Required host logout wiring.
    */
   resetHistoryIdentity: () => Promise<{ remoteRevocationConfirmed: boolean }>;
+  /**
+   * Read the current browser visitor credential for a trusted voice integration.
+   * Returns null before minting, outside client-token mode, or after teardown.
+   * Never put this bearer credential in logs, URLs, or model context.
+   */
+  getVisitorToken: () => Promise<string | null>;
   /** Latest sanitized identity state; carries no token, proof, or identity id. */
   getHistoryIdentityStatus: () => HistoryIdentityStatus;
   /** `focus: false` keeps focus where it is (programmatic/preview opens). */
@@ -8982,6 +8988,7 @@ export const createAgentExperience = (
   destroyCallbacks.push(() => {
     session.destroy();
     visitorStore?.destroy();
+    visitorStore = null;
   });
 
   // Mirror read-aloud playback state into the action buttons, and surface it as
@@ -15214,6 +15221,12 @@ export const createAgentExperience = (
     },
     resetHistoryIdentity(): Promise<{ remoteRevocationConfirmed: boolean }> {
       return resetHistoryIdentity();
+    },
+    async getVisitorToken(): Promise<string | null> {
+      const store = visitorStore;
+      if (!store) return null;
+      const token = await store.get();
+      return store === visitorStore ? token : null;
     },
     getHistoryIdentityStatus(): HistoryIdentityStatus {
       if (!historyProvider) {

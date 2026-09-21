@@ -171,6 +171,42 @@ Optional speech-to-text via the Web Speech API or Runtype's WebSocket voice serv
 
 Custom voice providers use the same microphone controls. Updating or disabling `voiceRecognition.provider` disconnects the old provider before installing its replacement. A provider's `disconnect()` must release its resources and callbacks. For concurrent turns, pass `{ turnId }` as the fourth `onTranscript` callback argument, using the same ID on each turn's user and assistant transcripts. Persona rejects replies belonging to cancelled or superseded identified turns. Providers that omit IDs must discard cancelled output before emitting the next user final; untagged overlapping replies cannot be correlated by the widget.
 
+### Shared text and voice conversations
+
+In client-token mode, `widget.getVisitorToken()` returns the current browser visitor credential as `Promise<string | null>`. A trusted voice provider can use it to join the text conversation. The getter reads Persona's credential store on each call, including persisted credentials and replacements, without making a network request or minting a visitor. It returns `null` before a credential exists, outside client-token mode, after widget destruction, or if the widget changes credential stores while the read is pending.
+
+Initialize the text session before starting voice. Use `onSessionInit` for the session ID and the getter for the credential; an initialization response can omit the token after Persona claims the conversation.
+
+```ts
+import { initAgentWidget } from '@runtypelabs/persona';
+import { createPersonaVoiceProvider } from '@runtypelabs/voice/persona';
+
+let sessionId: string | undefined;
+const widget = initAgentWidget({
+	target: '#chat',
+	config: {
+		apiUrl: `${apiUrl}/v1/dispatch`,
+		agentId,
+		clientToken,
+		onSessionInit: (session) => { sessionId = session.sessionId; },
+	},
+});
+const voice = createPersonaVoiceProvider({
+	apiUrl,
+	agentId,
+	clientToken,
+	get sessionId() { return sessionId; },
+	visitorToken: async () => {
+		const token = await widget.getVisitorToken();
+		if (!sessionId || !token) throw new Error('Initialize the text session before starting voice.');
+		return token;
+	},
+});
+widget.update({ voiceRecognition: { enabled: true, provider: voice } });
+```
+
+This example requires a voice-package version with `visitorToken` support and an API that authorizes shared visitor-owned conversations. Treat the returned token as a bearer credential: pass it only to the configured Runtype API through the voice provider, and keep it out of URLs, logs, analytics, saved transcripts, and model context. The getter does not add credentials to controller events or session callbacks. Reset the visitor identity on host logout and stop active voice calls when switching identities or agents.
+
 ### Reasoning & Extended Thinking
 Collapsible reasoning bubbles that display model chain-of-thought with duration tracking and streaming. Controlled by `features.showReasoning`: on by default, or override the renderer with a plugin hook.
 
