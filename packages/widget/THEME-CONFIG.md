@@ -862,7 +862,7 @@ form itself; `fontSize` and `lineHeight` set the textarea's type.
 | `lineHeight` | `"1.25rem"` | `--persona-composer-line-height` |
 | `controlSize` | `"40px"` | `--persona-composer-control-size` |
 | `controlIconSize` | `"24px"` | `--persona-composer-control-icon-size` |
-| `overlayBand` | `"transparent"` | `--persona-composer-overlay-band` |
+| `overlayBand` | V4: `"transparent"`; V5: theme-aware 24px fade | `--persona-composer-overlay-band` |
 
 ```typescript
 const theme = createTheme({
@@ -879,6 +879,24 @@ const theme = createTheme({
 ```
 
 #### Overlay placement
+
+V5 defaults to `composer.placement: "overlay"` with
+`overlayBand: "linear-gradient(to bottom, transparent, var(--persona-container) 24px)"`.
+Use `composer.placement: "block"` to restore a separate footer, or set
+`overlayBand: "transparent"` for a plain overlay. V4 retains the separate footer.
+
+To cover the transcript below the input midpoint, use a hard gradient stop.
+This example aligns with the standard single-row footer:
+
+```ts
+theme: { components: { composer: {
+  overlayBand: "linear-gradient(to bottom, transparent calc(50% + 6px), var(--persona-container) calc(50% + 6px))",
+} } }
+```
+
+This paints an opaque band; it does not change the scroll viewport. The 6px offset accounts for the standard footer layout; custom
+footer content, input heights, or padding may require adjusting the stop.
+
 
 `overlayBand` only paints under `composer.placement: "overlay"`, where the
 composer footer is absolutely overlaid on the transcript. It takes any CSS
@@ -1503,8 +1521,7 @@ createAgentExperience(mountElement, {
 
 The flag selects defaults only. Explicit widget configuration and explicit theme
 tokens still take precedence. The opt-in currently changes the core transcript,
-header, composer, panel, and dark palette defaults. The circle launcher,
-centered welcome, and activity rows arrive in later phases.
+header, composer, panel, and dark palette defaults. The centered welcome and activity rows arrive in later phases.
 
 With the flag enabled, `colorScheme: "dark"` (or an automatically detected dark
 scheme) uses a `#0f0f10` canvas, `#1a1a1b` surface, `#27272a` user bubble,
@@ -1522,6 +1539,7 @@ Partial V5 palette overrides preserve the remaining dark shades.
 | Header padding | `20px 24px` | `8px 8px 8px 16px` |
 | Header controls / glyphs | 32px / 20px | 28px / 18px |
 | `composer.layout` | `"stacked"` | `"single-row"` |
+| `composer.placement` | `"block"` | `"overlay"` with a 24px fade |
 | Composer input / controls | 14px / 40px | 15px / 32px |
 | Floating panel | 440px, viewport-clamped 640px height | 400px, `min(704px, 100dvh - 104px)` height |
 | Turn gap | 12px | 20px; 28px in full-height/fullscreen views |
@@ -2594,7 +2612,7 @@ layout: {
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `composer.placement` | `"block"` | `"block"` keeps the footer a flex sibling below the scroll body; `"overlay"` absolutely overlays it so the transcript scrolls behind it |
+| `composer.placement` | V4: `"block"`; V5: `"overlay"` | `"block"` keeps the footer a flex sibling below the scroll body; `"overlay"` absolutely overlays it so the transcript scrolls behind it |
 
 Under `"overlay"` the widget reserves the footer's live height as bottom padding
 on the scroll body and on a `renderWelcome` plugin overlay, and offsets the
@@ -2881,3 +2899,23 @@ import {
 | Theme config | Flat properties | Layered tokens (palette/semantic/components) |
 | Dark mode | Separate `darkTheme` object | Unified via `colorScheme` + auto dark palette |
 | Host element | `.tvw-widget-root` | `.persona-host` |
+
+### Collapsed launcher variants
+
+`launcher.variant` accepts `"pill"` (V4 default) or `"circle"` (V5 default).
+The circle is a 48px icon button with a 24px glyph, primary ink background,
+`0 8px 24px rgba(0,0,0,.16)` shadow, and 20px viewport offset. Its accessible
+name comes from `launcher.title`. Light and dark themes resolve its colors.
+
+Both variants are available in either defaults state. Use
+`theme.components.launcher.{size,iconSize,background,foreground,border,borderRadius,shadow,offset}`
+to customize the circle. Explicit theme tokens and `launcher.border` /
+`launcher.shadow` win over variant defaults. Existing icon/image configuration
+also applies. The deferred launcher and full widget use the same renderer.
+
+```ts
+launcher: { variant: "circle", title: "Open support" },
+theme: { components: { launcher: { size: "56px", offset: "24px" } } },
+```
+
+Choose `launcher.variant: "pill"` to retain the text-and-icon launcher under V5.

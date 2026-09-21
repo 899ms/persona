@@ -1,3 +1,4 @@
+import { CIRCLE_LAUNCHER_TOKENS } from "./launcher-variant";
 import type {
   DeepPartial,
   PersonaTheme,
@@ -586,6 +587,7 @@ export const DEFAULT_SEMANTIC = DEFAULT_SEMANTIC_V4;
 export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
 export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   ...DEFAULT_COMPONENTS_BASE,
+  launcher: CIRCLE_LAUNCHER_TOKENS,
   input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.2xl' },
   panel: {
     ...DEFAULT_COMPONENTS_BASE.panel,
@@ -622,6 +624,7 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
     ...DEFAULT_COMPONENTS_BASE.composer,
     padding: '8px', fontSize: '15px', lineHeight: '1.5', controlSize: '32px', controlIconSize: '20px',
     sendIconSize: '18px', sendButtonRadius: '9999px', footerBorder: 'none',
+    overlayBand: 'linear-gradient(to bottom, transparent, var(--persona-container) 24px)',
     focusBorderColor: 'color-mix(in srgb, var(--persona-text) 28%, var(--persona-border))',
     focusRing: '1px solid color-mix(in srgb, var(--persona-text) 12%, transparent)',
   },

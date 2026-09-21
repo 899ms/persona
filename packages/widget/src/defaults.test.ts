@@ -15,6 +15,8 @@ describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) 
     if (!v5Defaults) expect(defaults).toEqual(DEFAULT_WIDGET_CONFIG);
     expect(defaults.layout?.header?.showSubtitle).toBe(!v5Defaults);
     expect(defaults.composer?.layout).toBe(v5Defaults ? "single-row" : undefined);
+    expect(defaults.launcher?.variant).toBe(v5Defaults ? "circle" : undefined);
+    expect(defaults.composer?.placement).toBe(v5Defaults ? "overlay" : undefined);
     expect(defaults.launcher?.width).toBe(v5Defaults
       ? "min(400px, calc(100vw - 24px))"
       : "min(440px, calc(100vw - 24px))");
@@ -22,10 +24,11 @@ describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) 
 
   it("preserves explicit composer and header options above the version defaults", () => {
     const result = mergeWithDefaults({
-      future, composer: { layout: "stacked" },
+      future, composer: { layout: "stacked", placement: "block" },
       layout: { header: { showSubtitle: true } },
     });
     expect(result.composer?.layout).toBe("stacked");
+    expect(result.composer?.placement).toBe("block");
     expect(result.layout?.header?.showSubtitle).toBe(true);
     const partial = mergeWithDefaults({ future, composer: { placement: "overlay" } });
     expect(partial.composer?.layout).toBe(v5Defaults ? "single-row" : undefined);

@@ -1,7 +1,8 @@
+import { CIRCLE_LAUNCHER_TOKENS, resolveLauncherVariant } from "./launcher-variant";
 import type { CreateThemeOptions, DeepPartial, PersonaTheme } from '../types/theme';
 import type { AgentWidgetConfig } from '../types';
 import { resolveDefaultsVersion } from '../defaults';
-import { createTheme, resolveTokens, themeToCssVariables } from './tokens';
+import { createTheme, resolveTokens, themeToCssVariables, DEFAULT_COMPONENTS_V4 } from './tokens';
 import { deepMerge } from './deep-merge';
 
 export type ColorScheme = 'light' | 'dark' | 'auto';
@@ -334,7 +335,14 @@ export const createDarkTheme = (
 
 export const getActiveTheme = (config?: WidgetConfig): PersonaTheme => {
   const scheme = getColorScheme(config);
-  const lightThemeConfig = normalizeThemeConfig(config?.theme);
+  const explicitTheme = normalizeThemeConfig(config?.theme);
+  // Variant defaults sit under explicit theme tokens in either defaults state.
+  const launcherDefaults = resolveLauncherVariant(config) === 'circle'
+    ? CIRCLE_LAUNCHER_TOKENS
+    : { ...DEFAULT_COMPONENTS_V4.launcher, ...(config?.future?.v5Defaults ? { offset: '1.5rem' } : {}) };
+  const lightThemeConfig = deepMerge(
+    { components: { launcher: launcherDefaults } }, explicitTheme
+  ) as DeepPartial<PersonaTheme>;
   const darkThemeConfig = normalizeThemeConfig(config?.darkTheme);
 
   if (scheme === 'dark') {

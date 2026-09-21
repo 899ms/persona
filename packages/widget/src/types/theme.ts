@@ -212,6 +212,8 @@ export interface InputTokens extends ComponentTokenSet {
 }
 
 export interface LauncherTokens extends ComponentTokenSet {
+  /** Distance from the viewport edges. Circle default: 20px; pill: 24px. */
+  offset?: string;
   size: string;
   iconSize: string;
   shadow: TokenReference<'shadow'>;
@@ -823,7 +825,7 @@ export interface ComposerChromeTokens {
    * (`composer.placement: "overlay"`). Any CSS `background` value, gradients
    * included — same convention as the shadow tokens. Inert under
    * `placement: "block"`.
-   * @default "transparent"
+   * @default "transparent" (V4); a theme-aware 24px fade (V5)
    */
   overlayBand?: string;
   /** Segmented mode-group track. */

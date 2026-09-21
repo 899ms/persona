@@ -102,6 +102,27 @@ describe.each([false, true])("core defaults lifecycle (v5=%s)", (v5Defaults) => 
     expect(mount.style.getPropertyValue("--persona-components-composer-focusRing")).toBe("none");
   });
 
+  it("switches default placement and fade while retaining explicit choices", () => {
+    window.scrollTo = vi.fn();
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const controller = createAgentExperience(mount, {
+      apiUrl: "/dispatch", persistState: false, future: { v5Defaults },
+      launcher: { autoExpand: true },
+    });
+    controllers.push(controller);
+    for (const state of [v5Defaults, !v5Defaults]) {
+      controller.update({ future: { v5Defaults: state } });
+      expect(mount.dataset.personaComposerPlacement).toBe(state ? "overlay" : "block");
+      expect(mount.style.getPropertyValue("--persona-composer-overlay-band"))
+        .toBe(state ? "linear-gradient(to bottom, transparent, var(--persona-container) 24px)" : "transparent");
+    }
+    controller.update({ composer: { placement: "block" }, theme: { components: { composer: { overlayBand: "transparent" } } } });
+    controller.update({ future: { v5Defaults: !v5Defaults } });
+    expect(mount.dataset.personaComposerPlacement).toBe("block");
+    expect(mount.style.getPropertyValue("--persona-composer-overlay-band")).toBe("transparent");
+  });
+
   it("uses fullscreen turn spacing in full-height embeds and honors explicit spacing", () => {
     window.scrollTo = vi.fn();
     const mount = document.createElement("div");

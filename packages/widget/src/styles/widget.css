@@ -7205,3 +7205,40 @@
     opacity: 0.6;
   }
 }
+
+/* Both the critical and full launchers use these variant and placement rules. */
+[data-persona-launcher-variant="circle"] {
+  width: var(--persona-components-launcher-size, 48px);
+  height: var(--persona-components-launcher-size, 48px);
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  color: var(--persona-launcher-fg, var(--persona-text-inverse));
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"] {
+  color: inherit;
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"].persona-bg-persona-primary {
+  background: transparent;
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"] svg {
+  width: var(--persona-components-launcher-iconSize, 24px);
+  height: var(--persona-components-launcher-iconSize, 24px);
+  stroke: currentColor;
+}
+.persona-launcher-surface[data-teaser].persona-bottom-6,
+.persona-launcher-surface > button.persona-bottom-6 {
+  bottom: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-top-6,
+.persona-launcher-surface > button.persona-top-6 {
+  top: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-right-6,
+.persona-launcher-surface > button.persona-right-6 {
+  right: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-left-6,
+.persona-launcher-surface > button.persona-left-6 {
+  left: var(--persona-components-launcher-offset, 1.5rem);
+}

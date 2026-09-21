@@ -258,12 +258,14 @@ export const DEFAULTS_BASE: Partial<AgentWidgetConfig> = {
 
 /** Version-specific defaults, selected by the staged V5 opt-in. */
 export const DEFAULTS_V4: Partial<AgentWidgetConfig> = {};
+export const DEFAULT_LAUNCHER_V5: Partial<AgentWidgetLauncherConfig> = {
+  variant: "circle",
+  width: "min(400px, calc(100vw - 24px))",
+  headerIconSize: "20px",
+};
 export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {
-  launcher: {
-    width: "min(400px, calc(100vw - 24px))",
-    headerIconSize: "20px",
-  },
-  composer: { layout: "single-row" },
+  launcher: DEFAULT_LAUNCHER_V5,
+  composer: { layout: "single-row", placement: "overlay" },
   sendButton: { iconName: "arrow-up" },
   statusIndicator: { mode: "transient" },
   layout: {

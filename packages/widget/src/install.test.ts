@@ -232,21 +232,22 @@ describe("install.ts: deferred launcher path", () => {
     provideFullBundle();
     provideLauncherBundle();
 
+    const variant = v5Defaults ? "pill" : "circle";
     await install({
-      config: { apiUrl: "/api" },
+      config: { apiUrl: "/api", launcher: { variant } },
       future: { v5Defaults },
     });
     await flush();
 
     expect(launcherMount).toHaveBeenCalledWith(expect.objectContaining({
-      config: expect.objectContaining({ future: { v5Defaults } }),
+      config: expect.objectContaining({ future: { v5Defaults }, launcher: expect.objectContaining({ variant }) }),
     }));
 
     capturedOnOpen!();
     await flush();
 
     expect(initAgentWidget).toHaveBeenCalledWith(expect.objectContaining({
-      config: expect.objectContaining({ future: { v5Defaults } }),
+      config: expect.objectContaining({ future: { v5Defaults }, launcher: expect.objectContaining({ variant }) }),
     }));
   });
 });

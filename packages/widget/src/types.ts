@@ -3660,6 +3660,8 @@ export type AgentWidgetComposerBarPeekConfig = {
 };
 
 export type AgentWidgetLauncherConfig = {
+  /** Collapsed launcher shape. V4 defaults to pill; V5 defaults to circle. */
+  variant?: "pill" | "circle";
   enabled?: boolean;
   title?: string;
   subtitle?: string;
@@ -4454,9 +4456,9 @@ export type AgentWidgetComposerConfig = {
   /**
    * Where the composer footer sits relative to the transcript.
    *
-   * - `"block"` (default): the footer is a flex sibling below the scroll body.
+   * - `"block"` (V4 default): the footer is a flex sibling below the scroll body.
    *   Nothing scrolls behind it.
-   * - `"overlay"`: the footer is absolutely overlaid on the scroll body, so the
+   * - `"overlay"` (V5 default): the footer is absolutely overlaid on the scroll body, so the
    *   transcript scrolls behind it (the chatgpt.com / claude.ai model, where the
    *   composer is sticky inside the scroller). The widget reserves the footer's
    *   live height as bottom padding on the scroll body and on a plugin welcome
@@ -4468,7 +4470,7 @@ export type AgentWidgetComposerConfig = {
    * included) and `theme.components.input.backdropFilter`.
    *
    * Ignored in composer-bar mount mode, which owns its own geometry.
-   * @default "block"
+   * @default "block" (V4), "overlay" (V5)
    */
   placement?: ComposerPlacement;
   /**

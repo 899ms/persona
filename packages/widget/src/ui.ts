@@ -14884,6 +14884,8 @@ export const createAgentExperience = (
       }
 
       syncComposerLayout();
+      // Placement may change through a live option or defaults-version switch.
+      applyComposerPlacement();
 
       // Modes can be added or removed live: drop selections whose mode is gone
       // before anything reads `activeModeIds`, and mount/unmount the mode chips.
