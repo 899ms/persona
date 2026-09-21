@@ -1080,3 +1080,89 @@ describe('client visitor history - dedupe', () => {
     expect(h.sessionInits).toHaveLength(1);
   });
 });
+
+describe('voice integration visitor credential access', () => {
+  const controllers: ReturnType<typeof createAgentExperience>[] = [];
+  const mountWidget = (config: Partial<AgentWidgetConfig> = {}) => {
+    const mount = document.createElement('div');
+    document.body.appendChild(mount);
+    const controller = createAgentExperience(mount, {
+      apiUrl: API_URL,
+      clientToken: CLIENT_TOKEN,
+      launcher: { enabled: false },
+      ...config,
+    });
+    controllers.push(controller);
+    return controller;
+  };
+
+  afterEach(() => {
+    controllers.forEach((controller) => controller.destroy());
+    controllers.length = 0;
+    document.body.innerHTML = '';
+  });
+
+  it('reads minted proof after the claim response omits it without enriching the callback', async () => {
+    const minted = { id: 'vis_1', token: 'cvt_minted', expiresAt: futureIso(), endUserId: null };
+    installFetch([
+      ok({ sessionId: 'sess_first', visitor: minted }),
+      ok({ sessionId: 'sess_claimed', visitor: { ...minted, token: undefined } }),
+    ]);
+    const onSessionInit = vi.fn();
+    const controller = mountWidget({ persistState: false, onSessionInit });
+    await vi.waitFor(() => expect(onSessionInit).toHaveBeenCalledOnce());
+    expect(onSessionInit.mock.calls[0][0].visitor.token).toBeUndefined();
+    await expect(controller.getVisitorToken()).resolves.toBe('cvt_minted');
+    expect(JSON.stringify(controller.getState())).not.toContain('cvt_minted');
+    expect(window.localStorage.getItem(await storageKeyFor())).toBeNull();
+  });
+
+  it('reads the current persisted credential after reload and after rotation or removal', async () => {
+    await seedToken('cvt_stored');
+    installFetch([ok()]);
+    const controller = mountWidget();
+    await expect(controller.getVisitorToken()).resolves.toBe('cvt_stored');
+    await seedToken('cvt_rotated');
+    await expect(controller.getVisitorToken()).resolves.toBe('cvt_rotated');
+    window.localStorage.removeItem(await storageKeyFor());
+    await expect(controller.getVisitorToken()).resolves.toBeNull();
+  });
+
+  it('does not return credentials from a replaced client-token scope', async () => {
+    await seedToken('cvt_stored');
+    installFetch([ok(), ok()]);
+    const controller = mountWidget();
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const pending = controller.getVisitorToken();
+    controller.update({ clientToken: 'ct_other' });
+    await expect(pending).resolves.toBeNull();
+    await expect(controller.getVisitorToken()).resolves.toBeNull();
+  });
+
+  it('returns null after teardown, including a read already in flight', async () => {
+    await seedToken('cvt_stored');
+    installFetch([ok()]);
+    const controller = mountWidget();
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    const pending = controller.getVisitorToken();
+    controller.destroy();
+    controllers.length = 0;
+    await expect(pending).resolves.toBeNull();
+    await expect(controller.getVisitorToken()).resolves.toBeNull();
+  });
+
+  it('returns null when no credential has been minted', async () => {
+    installFetch([ok()]);
+    const controller = mountWidget({ persistState: false });
+    await expect(controller.getVisitorToken()).resolves.toBeNull();
+  });
+
+  it('does not fetch or mint a visitor outside client-token mode', async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const controller = mountWidget({ clientToken: undefined });
+    await expect(controller.getVisitorToken()).resolves.toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});
