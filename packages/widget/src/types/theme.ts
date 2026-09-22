@@ -501,6 +501,8 @@ export interface MessageGeometryTokens {
 }
 
 export interface MessageTokens {
+  /** Height of the optional transcript top fade. Default 18px. */
+  topFadeHeight?: string;
   /** Vertical gap between transcript turns. @default "12px" */
   gap?: string;
   /** Gap between turns in fullscreen mode; falls back to `gap`. */
@@ -645,13 +647,21 @@ export interface AttachmentTokens {
 }
 
 /** Tool-call row chrome (collapsible tool bubbles). */
-export interface ToolBubbleTokens {
+export interface ActivityTokens {
+  rowHeight?: string;
+  labelSize?: string;
+  iconSize?: string;
+  indent?: string;
+  bodySurface?: TokenReference<'color'>;
+}
+
+export interface ToolBubbleTokens extends ActivityTokens {
   /** Box-shadow for tool bubbles (token ref or raw CSS, e.g. `none`). */
   shadow: string;
 }
 
 /** Reasoning / “thinking” row chrome. */
-export interface ReasoningBubbleTokens {
+export interface ReasoningBubbleTokens extends ActivityTokens {
   shadow: string;
 }
 
@@ -1065,6 +1075,7 @@ export interface ComponentTokens {
   voice: VoiceTokens;
   approval: ApprovalTokens;
   attachment: AttachmentTokens;
+  activity?: ActivityTokens;
   toolBubble: ToolBubbleTokens;
   reasoningBubble: ReasoningBubbleTokens;
   /** Event-stream inspector badge chips. */

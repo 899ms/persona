@@ -265,11 +265,16 @@ export const DEFAULT_LAUNCHER_V5: Partial<AgentWidgetLauncherConfig> = {
 };
 export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {
   launcher: DEFAULT_LAUNCHER_V5,
+  features: {
+    toolCallDisplay: { variant: "row", grouped: true, groupedMode: "collapsible", loadingAnimation: "shimmer" },
+    reasoningDisplay: { variant: "row", loadingAnimation: "shimmer" },
+  },
   composer: { layout: "single-row", placement: "overlay" },
   sendButton: { iconName: "arrow-up" },
   statusIndicator: { mode: "transient" },
   layout: {
     contentMaxWidth: "768px",
+    topFade: true,
     header: { showSubtitle: false },
     messages: { assistant: { width: "full" } },
   },

@@ -1,3 +1,4 @@
+import { applyActivityRow, activityDisplay, activityVariant, activityDuration } from "./activity-row";
 import { createElement } from "../utils/dom";
 import { renderLucideIcon } from "../utils/icons";
 import { AgentWidgetConfig, AgentWidgetMessage } from "../types";
@@ -42,11 +43,12 @@ export const createReasoningBubble = (
   config?: AgentWidgetConfig,
   expansionState = new Set<string>()
 ): HTMLElement => {
+  config = activityDisplay(config, "reasoning");
   const reasoning = message.reasoning;
   const bubble = createExpandableBubbleShell("persona-reasoning-bubble", message.id);
 
   if (!reasoning) {
-    return bubble;
+    return applyActivityRow(bubble, message, config, "reasoning");
   }
 
   const reasoningDisplayConfig = config?.features?.reasoningDisplay ?? {};
@@ -61,7 +63,8 @@ export const createReasoningBubble = (
 
   const headerContent = createElement("div", "persona-flex persona-flex-col persona-text-left");
   const title = createElement("span", "persona-text-xs persona-text-persona-primary");
-  const defaultSummary = "Thinking...";
+  const row = activityVariant(config, "reasoning") === "row";
+  const defaultSummary = row && !isActive ? `Thought for ${activityDuration(reasoning.durationMs ?? (reasoning.completedAt !== undefined && reasoning.startedAt !== undefined ? reasoning.completedAt - reasoning.startedAt : undefined))}` : "Thinking...";
   const reasoningConfig = config?.reasoning ?? {};
 
   // Elapsed helpers: defined early so they're available to renderCollapsedSummary
@@ -97,7 +100,7 @@ export const createReasoningBubble = (
   // Status span: used in the legacy (no-template) path
   const status = createElement("span", "persona-text-xs persona-text-persona-primary");
   status.textContent = describeReasonStatus(reasoning);
-  headerContent.appendChild(status);
+  if (!row) headerContent.appendChild(status);
 
   // Template and animation support
   const loadingAnimation = reasoningDisplayConfig.loadingAnimation ?? DEFAULT_REASONING_DISPLAY.loadingAnimation;
@@ -199,12 +202,12 @@ export const createReasoningBubble = (
     }
 
     // Legacy: hide title on complete, show status
-    if (reasoning.status === "complete") {
+    if (reasoning.status === "complete" && !row) {
       title.style.display = "none";
     }
   } else if (!skipCustomElement) {
     // Legacy path: no template, no animation
-    if (reasoning.status === "complete") {
+    if (reasoning.status === "complete" && !row) {
       title.style.display = "none";
     } else {
       title.style.display = "";
@@ -255,7 +258,7 @@ export const createReasoningBubble = (
 
   if (!expandable) {
     bubble.append(header, collapsedPreview);
-    return bubble;
+    return applyActivityRow(bubble, message, config, "reasoning");
   }
 
   const content = createElement(
@@ -279,5 +282,5 @@ export const createReasoningBubble = (
   applyExpansionDisplay({ expanded, header, toggleIcon, content, collapsedPreview, iconColor });
 
   bubble.append(header, collapsedPreview, content);
-  return bubble;
+  return applyActivityRow(bubble, message, config, "reasoning");
 };

@@ -1,3 +1,4 @@
+import { activityVariant, activityDuration, createActivityLifecycle, createActivityGroup } from "./components/activity-row";
 import { applyStatusIndicatorState, placeStatusIndicator } from "./utils/status-indicator";
 import { usesSessionVoice } from "./utils/voice-support";
 import { escapeHtml, createMarkdownProcessorFromConfig } from "./postprocessors";
@@ -932,6 +933,13 @@ export const createAgentExperience = (
   // beside the widget that renders it, not in component module scope.
   const toolExpansionState = new Set<string>();
   const reasoningExpansionState = new Set<string>();
+  const activityLifecycle = createActivityLifecycle((id, kind) => {
+    messageCache.delete(id);
+    const bubble = Array.from(messagesWrapper.querySelectorAll<HTMLElement>("[data-message-id]")).find(node => node.dataset.messageId === id);
+    if (!bubble) return;
+    if (kind === "tool") updateToolBubbleUI(id, bubble, toolExpansionState, config);
+    else updateReasoningBubbleUI(id, bubble, reasoningExpansionState);
+  });
   const approvalDetailsExpansionState = new Map<string, boolean>();
   const applyTooltipTiming = (): void => {
     configureTooltipTiming({
@@ -2721,6 +2729,12 @@ export const createAgentExperience = (
     if (!messageId) return;
 
     const bubbleType = headerButton.getAttribute('data-bubble-type');
+    if (bubble.classList.contains("persona-activity-row")) {
+      activityLifecycle.manual(messageId);
+      const group = bubble.parentElement?.closest<HTMLElement>("[data-persona-tool-group]");
+      if (group?.dataset.messageId) activityLifecycle.manual(group.dataset.messageId);
+    }
+
 
     // Toggle expansion state
     if (bubbleType === 'reasoning') {
@@ -2757,6 +2771,11 @@ export const createAgentExperience = (
       event.preventDefault();
       handleBubbleExpansion(event);
     }
+  });
+
+  messagesWrapper.addEventListener('click', (event) => {
+    // Assistive technologies activate buttons with a click rather than a pointer.
+    if (event.detail === 0 && (event.target as HTMLElement).closest('.persona-activity-row')) handleBubbleExpansion(event);
   });
 
   messagesWrapper.addEventListener('keydown', (event) => {
@@ -4681,7 +4700,12 @@ export const createAgentExperience = (
   let warnedComposerBarPlacement = false;
   // mount.style.cssText is wiped by applyFullHeightStyles, so every
   // mount-level var re-stamps here, next to applyContentMaxWidthVar.
+  function syncTranscriptTopFade() {
+    if (config.layout?.topFade && body.scrollTop > 1) body.setAttribute("data-persona-top-fade", "true");
+    else body.removeAttribute("data-persona-top-fade");
+  }
   const applyComposerPlacement = () => {
+    syncTranscriptTopFade();
     const placement = resolveComposerPlacement(config, isComposerBar());
     if (
       isComposerBar() &&
@@ -6292,6 +6316,15 @@ export const createAgentExperience = (
     messages: AgentWidgetMessage[],
     transform: MessageTransform
   ) => {
+    const activityIds = new Set<string>();
+    for (const message of messages) {
+      const kind = message.variant === "tool" ? "tool" : message.variant === "reasoning" ? "reasoning" : null;
+      if (!kind || activityVariant(config, kind) !== "row") continue;
+      const display = kind === "tool" ? config.features?.toolCallDisplay : config.features?.reasoningDisplay;
+      if (display?.expandable === false) continue;
+      activityIds.add(message.id);
+      activityLifecycle.observe(message, kind, kind === "tool" ? toolExpansionState : reasoningExpansionState, display);
+    }
     // Build new content in a temporary container for morphing
     const tempContainer = document.createElement("div");
 
@@ -7041,6 +7074,32 @@ export const createAgentExperience = (
         );
         groupWrapper.setAttribute("data-persona-tool-group-row", "true");
 
+        if (config.features?.toolCallDisplay?.groupedMode === "collapsible") {
+          const id = `tool-group-${group[0].id}`;
+          const active = group.some(item => item.toolCall?.status !== "complete");
+          const synthetic: AgentWidgetMessage = { ...group[0], id, toolCall: {
+            id, name: `${group.length} tools`, status: active ? "running" : "complete",
+            chunks: group.flatMap(item => item.toolCall?.chunks ?? []),
+            success: !group.some(item => item.toolCall?.success === false),
+          } };
+          activityIds.add(id);
+          activityLifecycle.observe(synthetic, "tool", toolExpansionState, config.features.toolCallDisplay);
+          const label = `${active ? "Using" : "Used"} ${group.length} tools`;
+          const custom = config.toolCall?.renderGroupedSummary?.({ messages: group, toolCalls: group.map(item => item.toolCall!), defaultSummary: label, config });
+          const row = createActivityGroup(synthetic, config, toolExpansionState.has(id), custom ?? label);
+          row.bubble.classList.add("persona-tool-group");
+          row.body.dataset.personaToolGroupStack = "true";
+          wrappers[0].before(groupWrapper);
+          groupWrapper.appendChild(row.bubble);
+          wrappers.forEach((wrapper, index) => {
+            wrapper.style.setProperty("--persona-message-row-max-width", "100%");
+            wrapper.style.setProperty("--persona-activity-stagger", `${index * 40}ms`);
+            wrapper.classList.add("persona-activity-group-child");
+            row.body.appendChild(wrapper);
+          });
+          return;
+        }
+
         const groupContainer = document.createElement("div");
         groupContainer.className =
           "persona-tool-group persona-flex persona-w-full persona-flex-col persona-gap-2";
@@ -7096,6 +7155,8 @@ export const createAgentExperience = (
         });
       });
     }
+
+    activityLifecycle.prune(activityIds);
 
     // Remove cache entries for messages that no longer exist
     pruneCache(messageCache, activeMessageIds);
@@ -8732,7 +8793,7 @@ export const createAgentExperience = (
       spans.forEach((span) => {
         const startedAt = Number(span.getAttribute("data-tool-elapsed"));
         if (!startedAt) return;
-        span.textContent = formatElapsedMs(now - startedAt);
+        span.textContent = span.closest(".persona-activity-row") ? activityDuration(now - startedAt) : formatElapsedMs(now - startedAt);
       });
     }, 100);
   };
@@ -13085,6 +13146,7 @@ export const createAgentExperience = (
   let lastBottomOffset = getScrollBottomOffset(body);
 
   const handleScroll = () => {
+    syncTranscriptTopFade();
     const scrollTop = body.scrollTop;
     // When content mutates (e.g. stream-animation plugins re-rendering text)
     // or the viewport grows (composer shrinking back), the maximum scroll
@@ -13303,6 +13365,8 @@ export const createAgentExperience = (
       }
       // Clear messages in session (this will trigger onMessagesChanged which re-renders)
       session.clearMessages();
+      if (config.layout?.topFade) body.scrollTop = 0;
+      body.removeAttribute("data-persona-top-fade");
       messageCache.clear();
       resumeAutoScroll();
 
@@ -15063,10 +15127,13 @@ export const createAgentExperience = (
     clearChat() {
       // Clear messages in session (this will trigger onMessagesChanged which re-renders)
       artifactsPaneUserHidden = false;
+      activityLifecycle.clear();
       toolExpansionState.clear();
       reasoningExpansionState.clear();
       approvalDetailsExpansionState.clear();
       session.clearMessages();
+      if (config.layout?.topFade) body.scrollTop = 0;
+      body.removeAttribute("data-persona-top-fade");
       messageCache.clear();
       resumeAutoScroll();
 
@@ -15584,6 +15651,7 @@ export const createAgentExperience = (
         clearInterval(toolElapsedTimerId);
         toolElapsedTimerId = null;
       }
+      activityLifecycle.clear();
       toolExpansionState.clear();
       reasoningExpansionState.clear();
       approvalDetailsExpansionState.clear();

@@ -1442,3 +1442,25 @@ describe.each([false, true])('welcome typography defaults (V5: %s)', (v5Defaults
     expect(css['--persona-input-radius']).toBe('20px');
   });
 });
+
+describe.each([false, true])('activity aliases (V5 %s)', v5Defaults => {
+  it('keeps legacy values usable while preferring explicit activity tokens', () => {
+    const vars = (activity?: { labelSize?: string; bodySurface?: string }) => themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: {
+      toolBubble: { labelSize: '17px', shadow: 'none' }, collapsibleWidget: { surface: '#123456' }, activity,
+    } } }));
+    expect(vars()['--persona-components-toolBubble-labelSize']).toBe('17px');
+    expect(vars()['--persona-components-activity-bodySurface']).toBe('#123456');
+    expect(vars({ labelSize: '15px', bodySurface: '#abcdef' })['--persona-components-toolBubble-labelSize']).toBe('15px');
+    expect(vars({ bodySurface: '#abcdef' })['--persona-components-activity-bodySurface']).toBe('#abcdef');
+  });
+});
+
+describe.each(['light', 'dark'] as const)('V5 header surface (%s)', colorScheme => {
+  it('matches the transcript container while preserving explicit header colors', () => {
+    const config = { colorScheme, future: { v5Defaults: true } };
+    const css = themeToCssVariables(getActiveTheme(config));
+    expect(css['--persona-header-bg']).toBe(css['--persona-container']);
+    const custom = themeToCssVariables(getActiveTheme({ ...config, theme: { components: { header: { background: '#123456' } } } }));
+    expect(custom['--persona-header-bg']).toBe('#123456');
+  });
+});

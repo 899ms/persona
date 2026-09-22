@@ -1,3 +1,4 @@
+import { applyActivityRow, activityDisplay, activityVariant } from "./activity-row";
 import { createElement, createNode } from "../utils/dom";
 import { AgentWidgetMessage, AgentWidgetConfig } from "../types";
 import { DEFAULT_TOOL_CALL_DISPLAY } from "../defaults";
@@ -12,16 +13,15 @@ import {
   updateExpandableBubbleUI,
 } from "./expandable-bubble";
 
-// Default the toggle chevron to the tool-call title color so it stays
-// readable on whatever surface the title does. The title falls back to
-// `.persona-text-persona-primary` (var(--persona-primary)) when no
-// `headerTextColor` is set, so mirror that here instead of `currentColor`.
+// Rows inherit their muted label color; cards retain the legacy primary fallback.
+// Explicit toggle and header colors win in both variants.
 const toolChevronColor = (
-  toolCallConfig: NonNullable<AgentWidgetConfig["toolCall"]>
+  toolCallConfig: NonNullable<AgentWidgetConfig["toolCall"]>,
+  activityRow = false
 ): string =>
   toolCallConfig.toggleTextColor ||
   toolCallConfig.headerTextColor ||
-  "var(--persona-primary, #171717)";
+  (activityRow ? "currentColor" : "var(--persona-primary, #171717)");
 
 const getToolPreviewText = (message: AgentWidgetMessage, maxLines: number): string => {
   const tool = message.toolCall;
@@ -77,7 +77,7 @@ const getToolSummaryText = (
         message,
         toolDisplayConfig?.previewMaxLines ?? DEFAULT_TOOL_CALL_DISPLAY.previewMaxLines
       );
-  const defaultSummary = tool ? describeToolTitle(tool) : "";
+  const defaultSummary = tool ? (activityVariant(config, "tool") === "row" ? `${tool.status === "complete" ? "Used" : "Using"} ${tool.name?.trim() || "tool"}` : describeToolTitle(tool)) : "";
 
   if (!tool) {
     return { summary: defaultSummary, previewText, isActive: false };
@@ -113,7 +113,7 @@ export const updateToolBubbleUI = (
   updateExpandableBubbleUI(messageId, bubble, {
     stateSet: expansionState,
     previewKind: "tool",
-    iconColor: toolChevronColor(config?.toolCall ?? {}),
+    iconColor: toolChevronColor(config?.toolCall ?? {}, bubble.classList.contains("persona-activity-row")),
   });
 };
 
@@ -122,6 +122,7 @@ export const createToolBubble = (
   config?: AgentWidgetConfig,
   expansionState = new Set<string>()
 ): HTMLElement => {
+  config = activityDisplay(config, "tool");
   const tool = message.toolCall;
   const toolCallConfig = config?.toolCall ?? {};
 
@@ -146,7 +147,7 @@ export const createToolBubble = (
       : "var(--persona-tool-bubble-shadow)";
 
   if (!tool) {
-    return bubble;
+    return applyActivityRow(bubble, message, config, "tool");
   }
 
   const toolDisplayConfig = config?.features?.toolCallDisplay ?? {};
@@ -290,7 +291,7 @@ export const createToolBubble = (
     }
   }
 
-  const iconColor = toolChevronColor(toolCallConfig);
+  const iconColor = toolChevronColor(toolCallConfig, activityVariant(config, "tool") === "row");
   const toggleIcon = appendHeaderToggle(header, headerContent, {
     expandable,
     expanded,
@@ -318,7 +319,7 @@ export const createToolBubble = (
 
   if (!expandable) {
     bubble.append(header, collapsedPreview);
-    return bubble;
+    return applyActivityRow(bubble, message, config, "tool");
   }
 
   const content = createElement(
@@ -447,5 +448,5 @@ export const createToolBubble = (
   applyExpansionDisplay({ expanded, header, toggleIcon, content, collapsedPreview, iconColor });
 
   bubble.append(header, collapsedPreview, content);
-  return bubble;
+  return applyActivityRow(bubble, message, config, "tool");
 };

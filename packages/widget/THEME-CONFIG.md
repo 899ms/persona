@@ -2951,3 +2951,49 @@ Each `components.suggestion.{chip,card,list}.fontWeight` controls that variant's
 label weight. `components.input.borderRadius` controls standard composer corners,
 including the single-row layout. The separate composer-bar pill retains its pill shape.
 These options work in both defaults modes. V4 typography and corner defaults are unchanged.
+
+### Tool and reasoning activity rows
+
+`features.toolCallDisplay.variant` and `features.reasoningDisplay.variant` accept
+`"card"` or `"row"` in either defaults mode. V4 keeps the existing card DOM; V5
+selects compact rows with status icons, a label, a disclosure chevron immediately
+after the label, and indented details. Tool labels include their name (`Using Search`,
+`Used Search`); completed reasoning shows `Thought for a moment` or a duration such
+as `Thought for 1m 5s`. Existing text templates and custom summary/body render hooks
+remain available. `expandable: false` disables disclosure.
+
+Rows open on their first content chunk and collapse once, 1000ms after completion.
+A manual toggle disables further automatic changes for that message. Completed
+messages loaded from history start collapsed. Set `autoExpand: false` or
+`autoCollapseDelay: false` on either display config to disable that automatic action,
+or set `autoCollapseDelay` to another millisecond delay. Clear/destroy resets the
+per-widget state and cancels timers. Reduced motion disables spinner, shimmer, and
+stagger animations.
+
+V5 tool display defaults to `grouped: true`, `groupedMode: "collapsible"` and
+`loadingAnimation: "shimmer"`; V5 reasoning also defaults to shimmer. Consecutive
+calls become an expandable `Used N tools` row (or `Using N tools` while active),
+with a 40ms stagger between children. `grouped: false` keeps individual rows.
+The existing `"stack"` and `"summary"` grouping modes keep their behavior.
+
+`theme.components.activity` accepts `rowHeight` (32px), `labelSize` (13px),
+`iconSize` (16px), `indent` (24px), and `bodySurface` (transparent). Those are V5
+emitted defaults and row fallbacks in V4. Per-kind aliases with the same names
+under `toolBubble` and `reasoningBubble` remain available. Explicit shared activity
+tokens take precedence over those aliases; explicit legacy `collapsibleWidget.surface`
+still supplies the activity body surface when no activity body surface is specified.
+Legacy tool/reasoning shadow tokens remain supported (V5 defaults to none).
+
+The row status uses pending/running/complete and tool `success: false` for errors.
+An attached approval or optional `toolCall.approvalStatus` supplies pending approval
+(clock) and denial (warning X) states; approval action cards retain their own UI.
+Status icons use success, danger, warning, and warning-strong colors with neutral
+pending/running states. These display options do not change tool execution or approval.
+
+### Transcript top edge
+
+`layout.topFade` defaults to `true` with `future.v5Defaults` and `false` in V4.
+It softly fades the top 18px of the transcript only when content has scrolled
+above the viewport. Set `layout: { topFade: false }` to disable it, or opt in
+with `true` in either defaults state. Customize its height through
+`theme.components.message.topFadeHeight` (for example, `"12px"`).

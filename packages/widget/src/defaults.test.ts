@@ -54,6 +54,7 @@ describe.each([false, true])("defaults resolver (v5Defaults: %s)", (v5Defaults) 
     expect(result.launcher?.title).toBe("Custom title");
     expect(result.features?.reasoningDisplay).toEqual({
       ...DEFAULT_WIDGET_CONFIG.features?.reasoningDisplay,
+      ...(v5Defaults ? { variant: "row", loadingAnimation: "shimmer" } : {}),
       expandable: false,
     });
     expect(result.theme?.components?.header).toEqual(config.theme.components.header);

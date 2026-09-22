@@ -588,6 +588,9 @@ export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
 export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   ...DEFAULT_COMPONENTS_BASE,
   launcher: CIRCLE_LAUNCHER_TOKENS,
+  activity: { rowHeight: "32px", labelSize: "13px", iconSize: "16px", indent: "24px", bodySurface: "transparent" },
+  toolBubble: { shadow: "none" },
+  reasoningBubble: { shadow: "none" },
   input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.full' },
   introCard: { ...DEFAULT_COMPONENTS_BASE.introCard, title: { fontSize: '22px', fontWeight: '500' } },
   suggestion: {
@@ -603,7 +606,7 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   },
   header: {
     ...DEFAULT_COMPONENTS_BASE.header,
-    background: 'semantic.colors.surface', foreground: 'semantic.colors.text',
+    background: 'semantic.colors.container', foreground: 'semantic.colors.text',
     padding: '8px 8px 8px 16px', minimalPadding: '8px 8px 8px 16px',
     minHeight: '48px', borderBottom: 'none',
     iconBackground: 'transparent', iconForeground: 'semantic.colors.text', iconScale: '1',
@@ -612,7 +615,7 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   },
   message: {
     ...DEFAULT_COMPONENTS_BASE.message,
-    gap: '20px', fullscreenGap: '28px',
+    gap: '20px', fullscreenGap: '28px', topFadeHeight: '18px',
     user: {
       ...DEFAULT_COMPONENTS_BASE.message.user,
       background: 'palette.colors.gray.100', text: 'semantic.colors.text',
@@ -859,6 +862,17 @@ export function createTheme(
   // A shared header padding is also the minimal-layout override unless the
   // host supplies the more specific token. Both keys remain emitted CSS vars,
   // so live updates and scheme changes restyle existing header DOM in place.
+  const activity = userConfig?.components?.activity;
+  for (const kind of ['toolBubble', 'reasoningBubble'] as const) {
+    for (const field of ['rowHeight', 'labelSize', 'iconSize', 'indent', 'bodySurface'] as const) {
+      if (activity?.[field] !== undefined) theme.components[kind][field] = activity[field];
+    }
+  }
+  const legacySurface = userConfig?.components?.collapsibleWidget?.surface;
+  if (legacySurface !== undefined && activity?.bodySurface === undefined) {
+    theme.components.activity = { ...theme.components.activity, bodySurface: legacySurface };
+  }
+
   const suppliedHeader = userConfig?.components?.header;
   if (suppliedHeader?.padding !== undefined && suppliedHeader.minimalPadding === undefined) {
     theme.components.header.minimalPadding = theme.components.header.padding;

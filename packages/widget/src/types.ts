@@ -2212,6 +2212,12 @@ export type AgentWidgetToolCallLoadingAnimation =
   | "rainbow";
 
 export type AgentWidgetToolCallDisplayFeature = {
+  /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
+  variant?: "card" | "row";
+  /** Row variant: open when the first content chunk arrives. Default true. */
+  autoExpand?: boolean;
+  /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */
+  autoCollapseDelay?: number | false;
   /**
    * Controls what collapsed tool call rows show in their header/summary area.
    * @default "tool-call"
@@ -2242,9 +2248,10 @@ export type AgentWidgetToolCallDisplayFeature = {
    * Controls how a grouped tool sequence is rendered.
    * - `"stack"`: show the group summary and each child tool row.
    * - `"summary"`: show one consolidated summary row only.
+   * - `"collapsible"`: expandable activity group (V5 default).
    * @default "stack"
    */
-  groupedMode?: "stack" | "summary";
+  groupedMode?: "stack" | "summary" | "collapsible";
   /**
    * What happens to a tool call row once it completes.
    *
@@ -2277,6 +2284,12 @@ export type AgentWidgetToolCallDisplayFeature = {
 export type AgentWidgetToolCallCompletedVisibility = "kept" | "removed";
 
 export type AgentWidgetReasoningDisplayFeature = {
+  /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
+  variant?: "card" | "row";
+  /** Row variant: open when the first content chunk arrives. Default true. */
+  autoExpand?: boolean;
+  /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */
+  autoCollapseDelay?: number | false;
   /**
    * When true, active collapsed reasoning rows can render a lightweight preview block.
    * @default false
@@ -6298,6 +6311,9 @@ export type AgentWidgetLayoutConfig = {
    * `launcher.composerBar.contentMaxWidth`)
    */
   contentMaxWidth?: string;
+  /** Fade the transcript's top edge when content is scrolled above it.
+   * Defaults to false in V4 and true with future.v5Defaults. */
+  topFade?: boolean;
 };
 
 // ============================================================================
@@ -7824,6 +7840,8 @@ export type AgentWidgetReasoning = {
 };
 
 export type AgentWidgetToolCall = {
+  /** Optional approval state for activity-row status chrome. */
+  approvalStatus?: "pending" | "approved" | "denied" | "timeout";
   id: string;
   name?: string;
   status: "pending" | "running" | "complete";

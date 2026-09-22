@@ -7282,3 +7282,67 @@
   .persona-welcome[data-persona-welcome-overlay] {
   justify-content: flex-start;
 }
+
+/* Activity rows share geometry but retain the legacy kind-specific token aliases. */
+.persona-activity-row {
+  width: 100%; color: var(--persona-muted); background: transparent;
+  --persona-activity-height: var(--persona-components-activity-rowHeight, 32px);
+  --persona-activity-label-size: var(--persona-components-activity-labelSize, 13px);
+  --persona-activity-icon-size: var(--persona-components-activity-iconSize, 16px);
+  --persona-activity-indent: var(--persona-components-activity-indent, 24px);
+  --persona-activity-body-bg: var(--persona-components-activity-bodySurface, transparent);
+}
+.persona-tool-bubble.persona-activity-row {
+  --persona-activity-height: var(--persona-components-toolBubble-rowHeight, var(--persona-components-activity-rowHeight, 32px));
+  --persona-activity-label-size: var(--persona-components-toolBubble-labelSize, var(--persona-components-activity-labelSize, 13px));
+  --persona-activity-icon-size: var(--persona-components-toolBubble-iconSize, var(--persona-components-activity-iconSize, 16px));
+  --persona-activity-indent: var(--persona-components-toolBubble-indent, var(--persona-components-activity-indent, 24px));
+  --persona-activity-body-bg: var(--persona-components-toolBubble-bodySurface, var(--persona-components-activity-bodySurface, transparent));
+}
+.persona-reasoning-bubble.persona-activity-row {
+  box-shadow: var(--persona-reasoning-bubble-shadow, none);
+  --persona-activity-height: var(--persona-components-reasoningBubble-rowHeight, var(--persona-components-activity-rowHeight, 32px));
+  --persona-activity-label-size: var(--persona-components-reasoningBubble-labelSize, var(--persona-components-activity-labelSize, 13px));
+  --persona-activity-icon-size: var(--persona-components-reasoningBubble-iconSize, var(--persona-components-activity-iconSize, 16px));
+  --persona-activity-indent: var(--persona-components-reasoningBubble-indent, var(--persona-components-activity-indent, 24px));
+  --persona-activity-body-bg: var(--persona-components-reasoningBubble-bodySurface, var(--persona-components-activity-bodySurface, transparent));
+}
+.persona-activity-header { display:flex; align-items:center; gap:8px; min-height:var(--persona-activity-height); padding:4px 0; background:transparent; border:0; color:inherit; font:inherit; text-align:left; max-width:100%; cursor:pointer; }
+.persona-activity-header:focus-visible { outline:2px solid var(--persona-primary); outline-offset:3px; border-radius:4px; }
+.persona-activity-header:not([data-expand-header]) { cursor:default; }
+.persona-activity-label { min-width:0; }
+.persona-activity-label, .persona-activity-label > span { font-size:var(--persona-activity-label-size); color:inherit; }
+.persona-activity-icon { display:inline-flex; flex:none; width:var(--persona-activity-icon-size); height:var(--persona-activity-icon-size); }
+.persona-activity-icon svg { width:100%; height:100%; }
+.persona-activity-chevron { margin-left:0; flex:none; }
+.persona-activity-duration { font-size:12px; white-space:nowrap; }
+.persona-activity-row > .persona-activity-body { margin-left:var(--persona-activity-indent); padding:8px 0; border:0; background:var(--persona-activity-body-bg); }
+.persona-activity-row[data-activity-state="done"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-success, #16a34a); }
+.persona-activity-row[data-activity-state="error"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-danger, #dc2626); }
+.persona-activity-row[data-activity-state="denied"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-warning-strong, #b45309); }
+.persona-activity-row[data-activity-state="awaiting-approval"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-warning, #d97706); }
+.persona-activity-row[data-activity-state="running"] > .persona-activity-header > .persona-activity-icon { animation:persona-activity-spin 1s linear infinite; }
+@keyframes persona-activity-spin { to { transform:rotate(360deg); } }
+@keyframes persona-activity-enter { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+.persona-activity-group-child { animation:persona-activity-enter 160ms ease both; animation-delay:var(--persona-activity-stagger, 0ms); }
+@media (prefers-reduced-motion: reduce) {
+  .persona-activity-row[data-activity-state="running"] > .persona-activity-header > .persona-activity-icon, .persona-activity-group-child { animation:none; }
+}
+.persona-activity-row[data-activity-group-shimmer][data-activity-state="running"] > .persona-activity-header > .persona-activity-label {
+  background:linear-gradient(100deg, var(--persona-muted) 25%, var(--persona-text) 50%, var(--persona-muted) 75%);
+  background-size:200% 100%; background-clip:text; -webkit-background-clip:text; color:transparent;
+  animation:persona-activity-shimmer 2s linear infinite;
+}
+@keyframes persona-activity-shimmer { to { background-position:-200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .persona-activity-row[data-activity-group-shimmer] > .persona-activity-header > .persona-activity-label { animation:none; background:none; color:var(--persona-muted); }
+}
+
+/* Keep the top edge soft only while earlier transcript content is out of view. */
+.persona-widget-container:has(> .persona-widget-body[data-persona-top-fade="true"]) {
+  background-color: var(--persona-container);
+}
+.persona-widget-body[data-persona-top-fade="true"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
+}
