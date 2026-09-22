@@ -1,5 +1,11 @@
 # @runtypelabs/persona
 
+## 4.23.0
+
+### Minor Changes
+
+- adde4a6: Expose `getVisitorToken()` on the widget handle so trusted voice providers can read the current visitor credential and share a conversation with text, including after initialization claims and page reloads.
+
 ## 4.22.1
 
 ### Patch Changes
