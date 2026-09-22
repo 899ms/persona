@@ -5410,7 +5410,8 @@ export type AgentWidgetResolvedSuggestion = {
 
 /** Presentation keys shared by every suggestion surface. */
 export type AgentWidgetSuggestionSurfaceConfig = {
-  /** Item density. Defaults to `card` for starters and `chip` for follow-ups. */
+  /** Item density. V4 starters: card. V5 starters: chip, or card in fullscreen.
+   * Follow-ups default to chip. */
   variant?: AgentWidgetSuggestionVariant;
   /** Default click behavior, overridable per item. Defaults to `send`. */
   behavior?: AgentWidgetSuggestionBehavior;
@@ -5421,7 +5422,7 @@ export type AgentWidgetSuggestionSurfaceConfig = {
    * own stacking.
    */
   overflow?: "scroll" | "wrap";
-  /** Maximum visible items. Defaults to 4. */
+  /** Maximum visible items. Defaults to 4, or 3 for V5 non-fullscreen starters. */
   maxItems?: number;
 };
 
@@ -5485,8 +5486,8 @@ export type AgentWidgetWelcomeVariant = "card" | "hero" | "none";
 
 /**
  * When the welcome surface goes away. `"never"` is the default for `"card"`;
- * `"on-first-message"` is the default for `"hero"` and cannot be overridden
- * there.
+ * `"on-first-message"` is forced for legacy V4 `"hero"`. V5 defaults every
+ * variant to `"on-first-message"`. Explicit layout opts into overridable dismissal.
  */
 export type AgentWidgetWelcomeDismiss = "never" | "on-first-message";
 
@@ -5538,7 +5539,10 @@ export type AgentWidgetWelcomeAlign = "start" | "center";
  * host-set value from a filled-in default.
  */
 export interface AgentWidgetWelcomeConfig {
-  /** Card or hero title. Defaults to "Hello 👋". */
+  /** Vertical placement: V4 defaults to top; V5 to centered. Fullscreen centered
+   * welcomes also raise the empty composer unless `anchor` is explicitly set. */
+  layout?: "top" | "centered";
+  /** Card or hero title. V4: "Hello 👋". V5: "What can I help with?". */
   title?: string;
   /**
    * Small muted line above the title, e.g. a section name. Omitted when unset
@@ -5551,19 +5555,22 @@ export interface AgentWidgetWelcomeConfig {
   icon?: AgentWidgetWelcomeIcon;
   /**
    * Horizontal alignment of the kicker, title, subtitle, and starter
-   * suggestions. Unset follows the variant: `card` starts, `hero` centers.
+   * suggestions. Centered layouts default to center. Otherwise unset follows
+   * the variant: `card` starts, `hero` centers.
    */
   align?: AgentWidgetWelcomeAlign;
   /** @default "card" */
   variant?: AgentWidgetWelcomeVariant;
-  /** @default "never" for `card`, always `"on-first-message"` for `hero`. */
+  /** V4: never for card, forced on-first-message for hero. V5: on-first-message
+   * for all variants; explicit values win. Explicit layout also allows overriding
+   * the legacy hero dismissal in V4. */
   dismiss?: AgentWidgetWelcomeDismiss;
   /**
    * Vertical anchoring of the greeting-plus-composer pair in the EMPTY
    * conversation only. On the first message the pair drops to the bottom
    * (animated; see `data-persona-conversation-state`).
    *
-   * - `"bottom"` (default): the composer stays pinned at the bottom.
+   * - `"bottom"`: the composer stays pinned at the bottom.
    * - `"center"`: greeting and composer float together so the composer's top
    *   edge lands at `anchorComposerTop` of the panel column, and the welcome
    *   surface is end-anchored `composerGap` above it.
@@ -5571,7 +5578,8 @@ export interface AgentWidgetWelcomeConfig {
    * Composes with either `composer.placement`. Ignored in composer-bar mount
    * mode. `renderWelcome` plugin content inherits the anchor: the widget
    * positions the overlay host and reserves the composer zone.
-   * @default "bottom"
+   * Defaults to bottom, except centered fullscreen layouts, which center the
+   * measured greeting/composer group when no anchor override is supplied.
    */
   anchor?: AgentWidgetWelcomeAnchor;
   /**

@@ -69,10 +69,10 @@ describe.each([{ v5Defaults: false }, { v5Defaults: true }])(
     });
 
     it('keeps palette radius overrides connected to panel, user bubble, and composer', () => {
-      const css = themeToCssVariables(createTheme({ palette: { radius: { lg: '3px', xl: '7px', '2xl': '11px' } } }, { future: { v5Defaults }, validate: false }));
+      const css = themeToCssVariables(createTheme({ palette: { radius: { lg: '3px', xl: '7px', '2xl': '11px', full: '99px' } } }, { future: { v5Defaults }, validate: false }));
       expect(css['--persona-panel-radius']).toBe('7px');
       expect(css['--persona-message-user-radius']).toBe(v5Defaults ? '7px' : '3px');
-      expect(css['--persona-input-radius']).toBe(v5Defaults ? '11px' : '3px');
+      expect(css['--persona-input-radius']).toBe(v5Defaults ? '99px' : '3px');
     });
 
     it('derives minimal header padding from an explicit shared padding unless overridden', () => {

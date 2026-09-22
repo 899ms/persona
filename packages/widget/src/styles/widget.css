@@ -582,6 +582,7 @@
     --persona-components-suggestion-chip-foreground,
     var(--persona-text)
   );
+  font-weight: var(--persona-components-suggestion-chip-fontWeight, 500);
   font-size: var(--persona-components-suggestion-chip-fontSize, 0.8125rem);
   line-height: var(--persona-components-suggestion-chip-lineHeight, 1.25);
 }
@@ -606,6 +607,7 @@
     var(--persona-text)
   );
   box-shadow: var(--persona-components-suggestion-card-shadow, none);
+  font-weight: var(--persona-components-suggestion-card-fontWeight, 500);
   font-size: var(--persona-components-suggestion-card-fontSize, 0.875rem);
   line-height: var(--persona-components-suggestion-card-lineHeight, 1.35);
 }
@@ -630,6 +632,7 @@
     --persona-components-suggestion-list-foreground,
     var(--persona-text)
   );
+  font-weight: var(--persona-components-suggestion-list-fontWeight, 500);
   font-size: var(--persona-components-suggestion-list-fontSize, 0.875rem);
   line-height: var(--persona-components-suggestion-list-lineHeight, 1.35);
 }
@@ -7241,4 +7244,41 @@
 .persona-launcher-surface[data-teaser].persona-left-6,
 .persona-launcher-surface > button.persona-left-6 {
   left: var(--persona-components-launcher-offset, 1.5rem);
+}
+
+/* Center the complete empty greeting group without trapping overflow above
+   the scroll origin. Auto margins collapse naturally when content is tall. */
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-conversation-state="empty"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: auto;
+  flex-shrink: 0;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-anchor="center"][data-persona-conversation-state="empty"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: auto 0;
+}
+[data-persona-root][data-persona-welcome-layout="centered"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-anchor="center"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  justify-content: safe flex-end;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-fullscreen="true"]
+  .persona-suggestions[data-variant="card"][data-persona-suggestion-surface="starter"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* An explicit top layout overrides the legacy hero's auto margins. Unspecified
+   V4 heroes retain their original centering in empty and active transcripts. */
+[data-persona-root][data-persona-welcome-layout-explicit="top"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: 0;
+}
+[data-persona-root][data-persona-welcome-layout-explicit="top"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  justify-content: flex-start;
 }

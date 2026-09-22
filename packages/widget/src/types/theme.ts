@@ -1012,6 +1012,8 @@ export interface ScrollToBottomTokens extends ComponentTokenSet {
 
 /** Visual tokens shared by one suggestion presentation variant. */
 export interface SuggestionVariantTokens extends ComponentTokenSet {
+  /** Label weight. V4: 500; V5: 400. */
+  fontWeight?: string;
   /** Space inside one item, between its icon and its copy. */
   gap?: string;
   /** Space between suggestion items in the container. */

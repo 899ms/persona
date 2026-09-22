@@ -79,7 +79,7 @@ describe.each([false, true])("composer compact state (v5Defaults: %s)", (v5Defau
 
   afterEach(() => {
     if (v5Defaults) for (const mount of mounts) {
-      expect(mount.style.getPropertyValue("--persona-input-radius")).toBe("24px");
+      expect(mount.style.getPropertyValue("--persona-input-radius")).toBe("9999px");
       expect(mount.style.getPropertyValue("--persona-composer-control-size")).toBe("32px");
     }
     controllers.splice(0).forEach((controller) => {

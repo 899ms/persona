@@ -2919,3 +2919,35 @@ theme: { components: { launcher: { size: "56px", offset: "24px" } } },
 ```
 
 Choose `launcher.variant: "pill"` to retain the text-and-icon launcher under V5.
+
+### Welcome layout and V5 defaults
+
+`welcome.layout: "top" | "centered"` is available in both default modes.
+V4 retains its existing top/card presentation and legacy centered hero. Explicit
+`layout: "top"` also places a hero at the top, in empty and active conversations. V5 (`future.v5Defaults: true`)
+defaults to `centered`: greeting, optional subtitle, and starters form a centered
+transcript group in floating and docked panels. In fullscreen, the empty greeting
+and composer are centered as one measured group. Explicit `welcome.anchor` or
+`welcome.anchorComposerTop` retain the existing percentage-based geometry.
+The composer moves to the footer on the first user message in 320ms; reduced motion
+makes this immediate. Clearing the chat restores the empty layout. Assistant-only
+history does not dismiss the greeting.
+
+V5 defaults to title `What can I help with?`, no subtitle, and
+`dismiss: "on-first-message"` for every variant. Explicit welcome fields, legacy
+copy fields, alignment, anchor, composer gap, and typography tokens keep precedence.
+`welcome.anchor: "bottom"` keeps the fullscreen composer at the bottom even with
+centered copy; `welcome.anchor: "center"` can raise it in a floating panel too.
+
+V5 starters default to centered wrapping chips (three items) in floating/docked
+panels and a two-column card grid (four items) in fullscreen. `suggestions.starters`
+can override placement, variant, overflow, and `maxItems`. Legacy `suggestionChips`
+also use these defaults in V5. V4 starter behavior is unchanged.
+
+V5 uses a 22px/500 welcome title, 14px/500 header title, regular (400)
+suggestion labels, and pill-shaped composer input corners. Override welcome and
+header typography through `components.introCard.title` and `components.header.title`.
+Each `components.suggestion.{chip,card,list}.fontWeight` controls that variant's
+label weight. `components.input.borderRadius` controls standard composer corners,
+including the single-row layout. The separate composer-bar pill retains its pill shape.
+These options work in both defaults modes. V4 typography and corner defaults are unchanged.

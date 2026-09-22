@@ -1551,6 +1551,16 @@ export const createAgentExperience = (
     }, 400);
   };
 
+  const isWelcomeFullscreen = () => {
+    const win = mount.ownerDocument.defaultView ?? window;
+    const mobile = (config.launcher?.mobileFullscreen ?? true) &&
+      win.innerWidth <= (config.launcher?.mobileBreakpoint ?? 640) &&
+      (launcherEnabled || isDockedMountMode(config));
+    return mobile || (config.launcher?.fullHeight === true &&
+      !config.launcher.sidebarMode && !isDockedMountMode(config));
+  };
+  const getWelcomeConfig = () => resolveWelcomeConfig(config, isWelcomeFullscreen());
+
   // Derived from the session's user messages on every welcome render; the
   // public `data-persona-conversation-state` contract mirrors it.
   let conversationState: "empty" | "active" = "empty";
@@ -1585,7 +1595,11 @@ export const createAgentExperience = (
   // updateScrollToBottomButtonOffset reads them, never writes.
   const syncComposerOverlayMetrics = () => {
     const placement = resolveComposerPlacement(config, isComposerBar());
-    const resolved = resolveWelcomeConfig(config);
+    const resolved = getWelcomeConfig();
+    mount.setAttribute("data-persona-welcome-fullscreen", String(isWelcomeFullscreen()));
+    mount.setAttribute("data-persona-welcome-layout", resolved.layout ?? "top");
+    mount.setAttribute("data-persona-welcome-layout-explicit", config.welcome?.layout ?? "");
+    mount.setAttribute("data-persona-welcome-anchor", resolved.anchor ?? "bottom");
     const footerHidden = footer.style.display === "none";
     const footerHeight = footerHidden ? 0 : footer.offsetHeight;
 
@@ -1594,10 +1608,25 @@ export const createAgentExperience = (
         ? parseAnchorFraction(resolved.anchorComposerTop) ??
           parseAnchorFraction(DEFAULT_ANCHOR_COMPOSER_TOP)!
         : null;
+    // The implicit fullscreen layout centers the complete greeting/composer
+    // group. Explicit anchoring retains its percentage-based geometry.
+    const centerGroup = fraction !== null && resolved.layout === "centered" &&
+      config.welcome?.anchor === undefined &&
+      config.welcome?.anchorComposerTop === undefined;
+    const measuredBodyStyle = centerGroup ? getComputedStyle(body) : null;
+    const previousOverlayHeight = parseFloat(mount.style.getPropertyValue("--persona-composer-overlay-height")) || 0;
+    const previousOverlayLift = parseFloat(mount.style.getPropertyValue("--persona-composer-lift")) || 0;
+    const groupGap = Math.max(0, (parseFloat(measuredBodyStyle?.paddingBottom ?? "") || 0) -
+      (placement === "overlay" ? previousOverlayHeight + previousOverlayLift : 0));
+    const columnTop = centerGroup ? body.getBoundingClientRect().top - container.getBoundingClientRect().top : 0;
+    const greetingHeight = !centerGroup || welcomeHost.hidden ? 0 :
+      (welcomeHost.querySelector<HTMLElement>("[data-persona-welcome-plugin]") ?? welcomeHost).offsetHeight;
     const lift =
       fraction === null || isComposerBar()
         ? 0
-        : computeComposerLift({
+        : centerGroup
+          ? Math.max(0, Math.round((container.clientHeight - columnTop - greetingHeight - groupGap - footerHeight) / 2))
+          : computeComposerLift({
             columnHeight: container.clientHeight,
             footerHeight,
             fraction,
@@ -4665,7 +4694,7 @@ export const createAgentExperience = (
         "[persona] composer.placement is ignored in composer-bar mount mode."
       );
     }
-    const welcome = resolveWelcomeConfig(config);
+    const welcome = getWelcomeConfig();
     mount.setAttribute("data-persona-composer-placement", placement);
     mount.setAttribute("data-persona-conversation-state", conversationState);
     // Root-level mirror of the welcome host's own anchor attribute, so the
@@ -5038,12 +5067,14 @@ export const createAgentExperience = (
       return;
     }
 
-    const starters = config.suggestions?.starters;
+    const v5 = config.future?.v5Defaults === true;
+    const fullscreen = isWelcomeFullscreen();
+    const starters = config.suggestions?.starters ?? (v5 ? {} : undefined);
     if (starters) {
       // The starter host lives inside the welcome surface, so a pinned
       // "welcome" placement has nowhere to render when that surface is hidden.
       const welcomeCardVisible = isWelcomeVisible(
-        resolveWelcomeConfig(config),
+        getWelcomeConfig(),
         current
       );
       const requestedPlacement = starters.placement ?? "auto";
@@ -5071,10 +5102,10 @@ export const createAgentExperience = (
         config.suggestionChipsConfig,
         {
           surface: "starter",
-          variant: starters.variant ?? "card",
+          variant: starters.variant ?? (v5 && !fullscreen ? "chip" : "card"),
           behavior: starters.behavior ?? "send",
           overflow: starters.overflow ?? "wrap",
-          maxItems: starters.maxItems ?? 4,
+          maxItems: starters.maxItems ?? (v5 && !fullscreen ? 3 : 4),
           config,
           plugins,
           submitPrompt: submitSuggestionPrompt,
@@ -8237,7 +8268,8 @@ export const createAgentExperience = (
       composerLiftAnimation = animateComposerLiftChange(
         footer,
         next === "active" ? previousLift : readLiftPx(),
-        next === "active" ? "drop" : "rise"
+        next === "active" ? "drop" : "rise",
+        getWelcomeConfig().layout === "centered" ? 320 : 260
       );
     }
     // The reservation shrinks by the lift in one frame, above the anchor.
@@ -8255,8 +8287,8 @@ export const createAgentExperience = (
   // so the pending stand-in the overlay body class would hide stays visible.
   let welcomePluginSuppressed = false;
   const updateWelcome = (messages?: AgentWidgetMessage[]) => {
-    const resolved = resolveWelcomeConfig(config);
-    const welcomeKey = `${resolved.variant}|${resolved.dismiss}|${resolved.anchor ?? "bottom"}|${resolved.align ?? ""}|${resolved.iconPlacement}|${resolved.kicker ?? ""}|${resolved.title}|${resolved.subtitle}`;
+    const resolved = getWelcomeConfig();
+    const welcomeKey = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.anchor ?? "bottom"}|${resolved.align ?? ""}|${resolved.iconPlacement}|${resolved.kicker ?? ""}|${resolved.title}|${resolved.subtitle}`;
     if (welcomeKey !== lastWelcomeKey || resolved.icon !== lastWelcomeIcon) {
       lastWelcomeKey = welcomeKey;
       lastWelcomeIcon = resolved.icon;
@@ -8409,8 +8441,8 @@ export const createAgentExperience = (
     // A plugin calling requestRender() from inside its own render would recurse.
     if (welcomeArbitrating) return;
     welcomeArbitrating = true;
-    const resolved = resolveWelcomeConfig(config);
-    lastWelcomeArbitrationKey = `${resolved.variant}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
+    const resolved = getWelcomeConfig();
+    lastWelcomeArbitrationKey = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
     lastWelcomeArbitrationIcon = resolved.icon;
     try {
       runWelcomeCleanups();
@@ -8459,8 +8491,8 @@ export const createAgentExperience = (
 
   /** Re-arbitrate only when the resolved welcome config actually changed. */
   const refreshWelcomePlugins = () => {
-    const resolved = resolveWelcomeConfig(config);
-    const key = `${resolved.variant}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
+    const resolved = getWelcomeConfig();
+    const key = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
     if (
       key === lastWelcomeArbitrationKey &&
       resolved.icon === lastWelcomeArbitrationIcon
@@ -12907,8 +12939,10 @@ export const createAgentExperience = (
     footerResizeObserver.disconnect();
     footerResizeObserver.observe(footer);
     footerResizeObserver.observe(container);
+    footerResizeObserver.observe(welcomeHost);
   };
 
+  let lastWelcomeFullscreen = isWelcomeFullscreen();
   const recalcPanelHeight = () => {
     // Composer-bar mode lets CSS own all sizing: collapsed pill is auto-sized
     // by the footer; expanded fullscreen/modal are driven by CSS attribute
@@ -12983,6 +13017,12 @@ export const createAgentExperience = (
       // overwrites updateOpenState()'s display:none when docked+closed. Re-sync after every recalc.
       updateScrollToBottomButtonOffset();
       syncComposerOverlayMetrics();
+      const welcomeFullscreen = isWelcomeFullscreen();
+      if (welcomeFullscreen !== lastWelcomeFullscreen) {
+        lastWelcomeFullscreen = welcomeFullscreen;
+        updateWelcome();
+        renderSuggestions();
+      }
       updateOpenState();
 
       // Sync scroll lock and host stacking when viewport mode changes (e.g. orientation change)

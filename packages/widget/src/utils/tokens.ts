@@ -588,7 +588,13 @@ export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
 export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
   ...DEFAULT_COMPONENTS_BASE,
   launcher: CIRCLE_LAUNCHER_TOKENS,
-  input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.2xl' },
+  input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.full' },
+  introCard: { ...DEFAULT_COMPONENTS_BASE.introCard, title: { fontSize: '22px', fontWeight: '500' } },
+  suggestion: {
+    chip: { ...DEFAULT_COMPONENTS_BASE.suggestion!.chip, fontWeight: '400' },
+    card: { ...DEFAULT_COMPONENTS_BASE.suggestion!.card, fontWeight: '400' },
+    list: { ...DEFAULT_COMPONENTS_BASE.suggestion!.list, fontWeight: '400' },
+  },
   panel: {
     ...DEFAULT_COMPONENTS_BASE.panel,
     width: 'min(400px, calc(100vw - 24px))',
@@ -602,7 +608,7 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
     minHeight: '48px', borderBottom: 'none',
     iconBackground: 'transparent', iconForeground: 'semantic.colors.text', iconScale: '1',
     controlSize: '28px', controlIconSize: '18px',
-    title: { fontSize: '14px', fontWeight: '600', lineHeight: '1.5' },
+    title: { fontSize: '14px', fontWeight: '500', lineHeight: '1.5' },
   },
   message: {
     ...DEFAULT_COMPONENTS_BASE.message,

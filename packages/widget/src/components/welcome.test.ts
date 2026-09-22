@@ -151,6 +151,14 @@ describe("composer lift animation", () => {
     footer.remove();
   });
 
+  it("accepts the centered layout's 320ms transition", () => {
+    const footer = makeFooter();
+    const animate = stubAnimate(footer);
+    animateComposerLiftChange(footer, 240, "drop", 320);
+    expect(animate.mock.calls[0]![1]).toMatchObject({ duration: 320 });
+    footer.remove();
+  });
+
   it("reverses the travel for the rise", () => {
     const footer = makeFooter();
     const animate = stubAnimate(footer);

@@ -1415,3 +1415,30 @@ it('keeps V5 dark body and markdown text above AA contrast', () => {
     expect((Math.max(...values) + 0.05) / (Math.min(...values) + 0.05), `${foreground} on ${background}`).toBeGreaterThanOrEqual(4.5);
   }
 });
+
+describe.each([false, true])('welcome typography defaults (V5: %s)', (v5Defaults) => {
+  it('resolves lighter V5 typography and preserves V4 fallbacks', () => {
+    const css = themeToCssVariables(getActiveTheme({ future: { v5Defaults } }));
+    expect(css['--persona-components-introCard-title-fontSize']).toBe(v5Defaults ? '22px' : undefined);
+    expect(css['--persona-components-introCard-title-fontWeight']).toBe(v5Defaults ? '500' : undefined);
+    expect(css['--persona-components-header-title-fontWeight']).toBe(v5Defaults ? '500' : undefined);
+    for (const variant of ['chip', 'card', 'list']) {
+      expect(css[`--persona-components-suggestion-${variant}-fontWeight`]).toBe(v5Defaults ? '400' : undefined);
+    }
+    if (v5Defaults) expect(css['--persona-input-radius']).toBe('9999px');
+  });
+
+  it('honors explicit typography and composer corners', () => {
+    const css = themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: {
+      introCard: { title: { fontWeight: '400', fontSize: '30px' } },
+      header: { title: { fontWeight: '600' } },
+      suggestion: { card: { fontWeight: '600' } },
+      input: { borderRadius: '20px' },
+    } } }));
+    expect(css['--persona-components-introCard-title-fontWeight']).toBe('400');
+    expect(css['--persona-components-introCard-title-fontSize']).toBe('30px');
+    expect(css['--persona-components-header-title-fontWeight']).toBe('600');
+    expect(css['--persona-components-suggestion-card-fontWeight']).toBe('600');
+    expect(css['--persona-input-radius']).toBe('20px');
+  });
+});

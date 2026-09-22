@@ -177,6 +177,7 @@ export const applyWelcomeConfig = (
   applyWelcomeIcon(elements.iconHolder, resolved.icon);
   elements.host.setAttribute("data-persona-welcome-variant", resolved.variant);
   elements.host.setAttribute("data-persona-welcome-dismiss", resolved.dismiss);
+  elements.host.setAttribute("data-persona-welcome-layout", resolved.layout ?? "top");
   elements.host.setAttribute(
     "data-persona-welcome-anchor",
     resolved.anchor ?? "bottom"
@@ -422,7 +423,8 @@ export const animateWelcomeOut = (
 export const animateComposerLiftChange = (
   footer: HTMLElement,
   distance: number,
-  direction: "drop" | "rise"
+  direction: "drop" | "rise",
+  duration = 260
 ): Animation | null => {
   if (
     distance <= 1 ||
@@ -437,6 +439,6 @@ export const animateComposerLiftChange = (
   // risk pinning a stale transform across a later re-show.
   return footer.animate(
     [{ transform: `translateY(${offset}px)` }, { transform: "none" }],
-    { duration: 260, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "none" }
+    { duration, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "none" }
   );
 };
