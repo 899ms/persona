@@ -755,6 +755,7 @@ export class AgentWidgetClient {
     identityProof?: string | null;
     storedSessionId?: string | null;
     omitVisitorFields?: boolean;
+    signal?: AbortSignal;
   }): Promise<ClientSession> {
     const historyCapable = this.isHistoryCapable() && !opts.omitVisitorFields;
     // Recovery is negotiated independently from the history UI. New servers
@@ -792,6 +793,7 @@ export class AgentWidgetClient {
           : {}),
     };
 
+    opts.signal?.throwIfAborted();
     const response = await fetch(this.getClientApiUrl('init'), {
       method: 'POST',
       headers: {
@@ -799,6 +801,7 @@ export class AgentWidgetClient {
         'X-Persona-Version': VERSION,
       },
       body: JSON.stringify(requestBody),
+      signal: opts.signal,
     });
 
     if (!response.ok) {
@@ -1805,25 +1808,44 @@ export class AgentWidgetClient {
     onEvent({ type: "status", status: "connecting" });
 
     try {
-      // Ensure session is initialized
-      const session = await this.initSession();
-
-      // Check if session is about to expire (within 1 minute)
-      if (new Date() >= new Date(session.expiresAt.getTime() - 60000)) {
-        // Session expired or expiring soon
-        this.clearClientSession();
-        this.config.onSessionExpired?.();
-        const error = new Error('Session expired. Please refresh to continue.');
-        forward({ type: "error", error });
-        throw error;
+      const assertCurrentTurn = () => {
+        options.signal?.throwIfAborted();
+        if (!isCurrentTurn()) throw new DOMException('Turn superseded', 'AbortError');
+      };
+      let session = this.clientSession ?? (await this.initSession());
+      assertCurrentTurn();
+      const renewSession = async () => {
+        assertCurrentTurn();
+        const previous = session;
+        const durable = previous.durableRecovery?.enabled === true;
+        if (durable && (!previous.conversationId || !(await this.readVisitorToken()))) {
+          throw new Error('Renewing this conversation requires its visitor credential.');
+        }
+        assertCurrentTurn();
+        const renewed = await this.createClientSession({
+          ...(durable || this.isHistoryCapable()
+            ? { conversationId: previous.conversationId, durableResume: durable }
+            : { storedSessionId: previous.sessionId }),
+          signal: options.signal,
+        });
+        assertCurrentTurn();
+        if (
+          (previous.conversationId && renewed.conversationId !== previous.conversationId) ||
+          (durable && renewed.durableRecovery?.enabled !== true)
+        ) {
+          throw new Error('Session renewal did not preserve this conversation.');
+        }
+        session = this.finishInit(renewed, previous.conversationId ?? null, false);
+        this.clientSession = session;
+        this.resetClientToolsFingerprint();
+        this.config.onSessionInit?.(session);
+      };
+      if (Date.now() >= session.expiresAt.getTime() - 60000) {
+        await renewSession();
       }
 
       // Build the standard payload to get context/metadata from middleware
       const basePayload = await this.buildPayload(options.messages);
-      const recoveryVisitorToken =
-        session.durableRecovery?.enabled === true
-          ? await this.readVisitorToken()
-          : null;
 
       // Build the chat request payload with message IDs for feedback tracking
       // Filter out sessionId from metadata if present (it's only for local storage)
@@ -1869,9 +1891,17 @@ export class AgentWidgetClient {
       // ship it again or just its fingerprint (retrying once on a 409 registry
       // miss). The cache is committed only after a successful stream start
       // (below), so a 409/failure leaves it untouched.
-      const { response, commit: commitClientToolsFingerprint } =
-        await this.sendWithClientToolsDiff(session.sessionId, basePayload.clientTools, (toolFields) => {
-          const chatRequest: ClientChatRequest = { ...baseChatRequest, ...toolFields };
+      const send = async () => {
+        assertCurrentTurn();
+        const recoveryVisitorToken =
+          session.durableRecovery?.enabled === true ? await this.readVisitorToken() : null;
+        assertCurrentTurn();
+        return this.sendWithClientToolsDiff(session.sessionId, basePayload.clientTools, (toolFields) => {
+          const chatRequest: ClientChatRequest = {
+            ...baseChatRequest,
+            sessionId: session.sessionId,
+            ...toolFields,
+          };
 
           if (this.debug) {
             // eslint-disable-next-line no-console
@@ -1891,6 +1921,19 @@ export class AgentWidgetClient {
             signal: options.signal,
           });
         });
+      };
+      let result = await send();
+      assertCurrentTurn();
+      if (result.response.status === 401) {
+        const rejection = await result.response.clone().json().catch(() => null);
+        assertCurrentTurn();
+        if (rejection?.error === 'Session not found or expired') {
+          await renewSession();
+          result = await send();
+          assertCurrentTurn();
+        }
+      }
+      const { response, commit: commitClientToolsFingerprint } = result;
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({ error: 'Chat request failed' }));

@@ -111,7 +111,7 @@ describe("client-token turn identity", () => {
     );
     // Let the first dispatch claim the turn and start streaming.
     await vi.waitFor(() =>
-      expect(firstEvents.some((e) => e.type === "status")).toBe(true)
+      expect(firstEvents.some((e) => e.type === "status" && e.status === "connected")).toBe(true)
     );
 
     const secondDispatch = client.dispatch({ messages, interrupt: true }, (event) =>
