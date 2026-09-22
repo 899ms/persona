@@ -1,5 +1,11 @@
 # @runtypelabs/persona
 
+## 4.23.1
+
+### Patch Changes
+
+- f81d97f: Renew expiring client-token sessions before sending chat messages and retry one explicit expired-session rejection. Preserve the visitor-owned conversation and message IDs, and stop recovery when the turn is cancelled or superseded.
+
 ## 4.23.0
 
 ### Minor Changes
