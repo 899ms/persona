@@ -2728,6 +2728,10 @@ export const createAgentExperience = (
     const messageId = bubble.getAttribute('data-message-id');
     if (!messageId) return;
 
+    // Disclosure is reading intent, not new streamed content. Pause before the
+    // DOM grows so the resize observer cannot pull the opened details away.
+    markReaderEngaged();
+    pauseAutoScroll();
     const bubbleType = headerButton.getAttribute('data-bubble-type');
     if (bubble.classList.contains("persona-activity-row")) {
       activityLifecycle.manual(messageId);
@@ -4096,6 +4100,7 @@ export const createAgentExperience = (
     messagesWrapper.style.gap = fullScreenTranscript
       ? "var(--persona-components-message-fullscreenGap, var(--persona-components-message-gap, 12px))"
       : "var(--persona-components-message-gap, 12px)";
+    messagesWrapper.style.setProperty("--persona-transcript-gap", messagesWrapper.style.gap);
     // Composer-bar mode owns its own sizing/chrome. Geometry comes from
     // `applyComposerBarGeometry()` (per-state inline on the wrapper), the
     // pill carries its own chrome via `.persona-pill-composer`, and the

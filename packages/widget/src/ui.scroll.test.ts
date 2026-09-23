@@ -818,6 +818,38 @@ describe("createAgentExperience streaming scroll", () => {
     controller.destroy();
   });
 
+  describe.each([false, true])('manual activity disclosure (V5 %s)', v5Defaults => {
+    it.each(['pointer', 'keyboard'])('keeps the viewport after %s expansion and later content growth', activation => {
+      const raf = installRafMock();
+      const resize = installResizeObserverMock();
+      const mount = createMount();
+      const controller = createAgentExperience(mount, {
+        apiUrl: '/test', future: { v5Defaults }, launcher: { enabled: false },
+        features: { toolCallDisplay: { variant: 'row', grouped: false, autoExpand: false } }
+      });
+      const body = mount.querySelector<HTMLElement>('#persona-scroll-container')!;
+      const metrics = installScrollMetrics(body, { scrollHeight: 1000, clientHeight: 400 });
+      controller.injectTestMessage({ type: 'message', message: {
+        id: 'tool-scroll', role: 'assistant', content: '', createdAt: STREAM_CREATED_AT,
+        variant: 'tool', toolCall: { id: 'tool-scroll', name: 'Search', status: 'complete', result: 'Long result' }
+      } });
+      raf.flush();
+      metrics.setScrollTop(600);
+      const header = mount.querySelector<HTMLButtonElement>('[data-message-id="tool-scroll"] > button')!;
+      header.dispatchEvent(activation === 'pointer'
+        ? new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+        : new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      expect(header.getAttribute('aria-expanded')).toBe('true');
+      metrics.setScrollHeight(1400);
+      resize.trigger(); raf.flush();
+      expect(metrics.getScrollTop()).toBe(600);
+      metrics.setScrollHeight(1600);
+      resize.trigger(); raf.flush();
+      expect(metrics.getScrollTop()).toBe(600);
+      controller.destroy();
+    });
+  });
+
   it("does not yank a paused reader when content grows without a render event", () => {
     const raf = installRafMock();
     const resize = installResizeObserverMock();

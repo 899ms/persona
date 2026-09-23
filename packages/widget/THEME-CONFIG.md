@@ -2962,11 +2962,13 @@ after the label, and indented details. Tool labels include their name (`Using Se
 as `Thought for 1m 5s`. Existing text templates and custom summary/body render hooks
 remain available. `expandable: false` disables disclosure.
 
-Rows open on their first content chunk and collapse once, 1000ms after completion.
-A manual toggle disables further automatic changes for that message. Completed
-messages loaded from history start collapsed. Set `autoExpand: false` or
-`autoCollapseDelay: false` on either display config to disable that automatic action,
-or set `autoCollapseDelay` to another millisecond delay. Clear/destroy resets the
+V5 tool and reasoning rows stay collapsed while streaming (`autoExpand: false`).
+Set `autoExpand: true` on either display config to open on the first content chunk;
+this remains the default for rows explicitly selected in V4. Rows collapse once,
+1000ms after completion. A manual toggle disables further automatic changes for
+that message. Completed messages loaded from history start collapsed. Set
+`autoCollapseDelay: false` to disable automatic collapse, or supply another
+millisecond delay. Clear/destroy resets the
 per-widget state and cancels timers. Reduced motion disables spinner, shimmer, and
 stagger animations.
 
@@ -2977,8 +2979,11 @@ with a 40ms stagger between children. `grouped: false` keeps individual rows.
 The existing `"stack"` and `"summary"` grouping modes keep their behavior.
 
 `theme.components.activity` accepts `rowHeight` (32px), `labelSize` (13px),
-`iconSize` (16px), `indent` (24px), and `bodySurface` (transparent). Those are V5
-emitted defaults and row fallbacks in V4. Per-kind aliases with the same names
+`iconSize` (16px), `indent` (0px for details), `groupIndent` (0px for grouped children),
+`transcriptGap` (4px between consecutive activity entries), `responseGap` (12px
+before an assistant response), `groupGap` (0px extra between child rows), `groupPadding` (0px around children), `bodyPadding` (4px 0), `sectionGap`
+(8px between detail sections), and `bodySurface` (transparent). These are V5
+emitted defaults. V4 retains its existing row spacing fallbacks. Per-kind aliases with the same names
 under `toolBubble` and `reasoningBubble` remain available. Explicit shared activity
 tokens take precedence over those aliases; explicit legacy `collapsibleWidget.surface`
 still supplies the activity body surface when no activity body surface is specified.

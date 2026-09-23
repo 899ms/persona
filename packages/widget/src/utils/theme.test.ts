@@ -1444,6 +1444,18 @@ describe.each([false, true])('welcome typography defaults (V5: %s)', (v5Defaults
 });
 
 describe.each([false, true])('activity aliases (V5 %s)', v5Defaults => {
+  it('emits versioned spacing and preserves independent spacing overrides', () => {
+    const defaults = themeToCssVariables(getActiveTheme({ future: { v5Defaults } }));
+    const expected = { indent: '0px', groupIndent: '0px', groupGap: '0px', groupPadding: '0px', transcriptGap: '4px', responseGap: '12px', bodyPadding: '4px 0', sectionGap: '8px' };
+    for (const [key, value] of Object.entries(expected)) {
+      expect(defaults[`--persona-components-activity-${key}`]).toBe(v5Defaults ? value : undefined);
+    }
+    const activity = { indent: '12px', groupIndent: '6px', groupGap: '3px', groupPadding: '2px 0', transcriptGap: '6px', responseGap: '16px', bodyPadding: '10px 0', sectionGap: '14px' };
+    const overridden = themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: { activity } } }));
+    for (const [key, value] of Object.entries(activity)) {
+      expect(overridden[`--persona-components-activity-${key}`]).toBe(value);
+    }
+  });
   it('keeps legacy values usable while preferring explicit activity tokens', () => {
     const vars = (activity?: { labelSize?: string; bodySurface?: string }) => themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: {
       toolBubble: { labelSize: '17px', shadow: 'none' }, collapsibleWidget: { surface: '#123456' }, activity,

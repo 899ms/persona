@@ -648,7 +648,22 @@ export interface AttachmentTokens {
 
 /** Tool-call row chrome (collapsible tool bubbles). */
 export interface ActivityTokens {
+  /** Minimum activity row height. */
   rowHeight?: string;
+  /** Group child indentation; falls back to indent when unset. V5: 0px. */
+  groupIndent?: string;
+  /** Extra vertical gap between grouped rows. V5: 0px. */
+  groupGap?: string;
+  /** Padding around expanded group children. V5: 0px. */
+  groupPadding?: string;
+  /** Gap between consecutive activity entries. V5: 4px. */
+  transcriptGap?: string;
+  /** Gap from activity to an assistant response. V5: 12px. */
+  responseGap?: string;
+  /** Expanded body padding. V5: 4px 0. */
+  bodyPadding?: string;
+  /** Gap between expanded detail sections. V5: 8px. */
+  sectionGap?: string;
   labelSize?: string;
   iconSize?: string;
   indent?: string;

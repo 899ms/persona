@@ -4401,12 +4401,12 @@
 }
 
 /* Collapsible header hover (tool + reasoning) */
-.persona-tool-bubble button[data-expand-header],
-.persona-reasoning-bubble button[data-expand-header] {
+.persona-tool-bubble button[data-expand-header]:not(.persona-activity-header),
+.persona-reasoning-bubble button[data-expand-header]:not(.persona-activity-header) {
   transition: background-color 0.15s ease;
 }
-.persona-tool-bubble button[data-expand-header]:hover,
-.persona-reasoning-bubble button[data-expand-header]:hover {
+.persona-tool-bubble button[data-expand-header]:not(.persona-activity-header):hover,
+.persona-reasoning-bubble button[data-expand-header]:not(.persona-activity-header):hover {
   background-color: var(--persona-cw-container, var(--cw-container, #f8fafc));
 }
 
@@ -7308,6 +7308,10 @@
   --persona-activity-body-bg: var(--persona-components-reasoningBubble-bodySurface, var(--persona-components-activity-bodySurface, transparent));
 }
 .persona-activity-header { display:flex; align-items:center; gap:8px; min-height:var(--persona-activity-height); padding:4px 0; background:transparent; border:0; color:inherit; font:inherit; text-align:left; max-width:100%; cursor:pointer; }
+/* Activity rows use foreground feedback; card hover surfaces stay on cards. */
+.persona-activity-header[data-expand-header] { transition:color 0.15s ease; }
+.persona-activity-header[data-expand-header]:hover,
+.persona-activity-header[data-expand-header]:focus-visible { color:var(--persona-text); }
 .persona-activity-header:focus-visible { outline:2px solid var(--persona-primary); outline-offset:3px; border-radius:4px; }
 .persona-activity-header:not([data-expand-header]) { cursor:default; }
 .persona-activity-label { min-width:0; }
@@ -7316,7 +7320,17 @@
 .persona-activity-icon svg { width:100%; height:100%; }
 .persona-activity-chevron { margin-left:0; flex:none; }
 .persona-activity-duration { font-size:12px; white-space:nowrap; }
-.persona-activity-row > .persona-activity-body { margin-left:var(--persona-activity-indent); padding:8px 0; border:0; background:var(--persona-activity-body-bg); }
+.persona-activity-row > .persona-activity-body { margin-left:var(--persona-activity-indent); padding:var(--persona-components-activity-bodyPadding, 8px 0); border:0; background:var(--persona-activity-body-bg); }
+.persona-activity-row[data-persona-tool-group] > .persona-activity-body {
+  margin-left:var(--persona-components-activity-groupIndent, var(--persona-activity-indent));
+  padding:var(--persona-components-activity-groupPadding, var(--persona-components-activity-bodyPadding, 8px 0));
+}
+.persona-activity-row > .persona-activity-body.persona-space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top:var(--persona-components-activity-sectionGap, 12px);
+}
+.persona-activity-row > [data-persona-tool-group-stack] > .persona-activity-group-child + .persona-activity-group-child {
+  margin-top:var(--persona-components-activity-groupGap, 0px);
+}
 .persona-activity-row[data-activity-state="done"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-success, #16a34a); }
 .persona-activity-row[data-activity-state="error"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-danger, #dc2626); }
 .persona-activity-row[data-activity-state="denied"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-warning-strong, #b45309); }
@@ -7345,4 +7359,12 @@
 .persona-widget-body[data-persona-top-fade="true"] {
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
   mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
+}
+
+/* Adjust only adjacent transcript activity, preserving normal message gaps. */
+.persona-widget-messages > [data-message-role]:has(.persona-activity-row) + [data-message-role]:has(.persona-activity-row) {
+  margin-top:calc(var(--persona-components-activity-transcriptGap, var(--persona-transcript-gap)) - var(--persona-transcript-gap));
+}
+.persona-widget-messages > [data-message-role]:has(.persona-activity-row) + [data-message-role="assistant"]:not(:has(.persona-activity-row)) {
+  margin-top:calc(var(--persona-components-activity-responseGap, var(--persona-transcript-gap)) - var(--persona-transcript-gap));
 }

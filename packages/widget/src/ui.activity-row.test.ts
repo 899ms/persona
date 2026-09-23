@@ -10,8 +10,23 @@ const inject = (id: string, status: 'running' | 'complete', chunks: string[] = [
 const header = (id: string) => mount.querySelector<HTMLButtonElement>(`[data-message-id="${id}"] > button`)!;
 const start = (v5Defaults: boolean, toolCallDisplay: NonNullable<AgentWidgetConfig['features']>['toolCallDisplay']) => { controller = createAgentExperience(mount, { future: { v5Defaults }, apiUrl: '/test', persistState: false, launcher: { enabled: false }, features: { toolCallDisplay } }); };
 describe.each([false, true])('activity UI (V5 %s)', v5Defaults => {
+  it('uses version defaults for streaming tool and reasoning disclosure', () => {
+    start(v5Defaults, { variant: 'row', grouped: false });
+    inject('tool1', 'running', ['one']);
+    expect(header('tool1').getAttribute('aria-expanded')).toBe(String(!v5Defaults));
+    if (v5Defaults) {
+      inject('tool1', 'running', ['one', 'two']);
+      expect(header('tool1').getAttribute('aria-expanded')).toBe('false');
+      header('tool1').click();
+      expect(header('tool1').getAttribute('aria-expanded')).toBe('true');
+    }
+    controller.destroy();
+    controller = createAgentExperience(mount, { future: { v5Defaults }, apiUrl: '/test', persistState: false, launcher: { enabled: false }, features: { reasoningDisplay: { variant: 'row' } } });
+    controller.injectTestMessage({ type: 'message', message: { id: 'r1', role: 'assistant', content: '', createdAt: '2026-01-01', variant: 'reasoning', reasoning: { id: 'r1', status: 'streaming', chunks: ['Thinking'] } } });
+    expect(header('r1').getAttribute('aria-expanded')).toBe(String(!v5Defaults));
+  });
   it('opens on first token, collapses once, and preserves a manual decision', () => {
-    start(v5Defaults, { variant: 'row', grouped: false }); vi.useFakeTimers();
+    start(v5Defaults, { variant: 'row', grouped: false, autoExpand: true }); vi.useFakeTimers();
     inject('tool1', 'running'); expect(header('tool1').getAttribute('aria-expanded')).toBe('false');
     inject('tool1', 'running', ['one']); expect(header('tool1').getAttribute('aria-expanded')).toBe('true');
     inject('tool1', 'complete', ['one']); vi.advanceTimersByTime(1000); expect(header('tool1').getAttribute('aria-expanded')).toBe('false');
@@ -19,7 +34,7 @@ describe.each([false, true])('activity UI (V5 %s)', v5Defaults => {
     inject('tool1', 'complete', ['one']); vi.advanceTimersByTime(2000); expect(header('tool1').getAttribute('aria-expanded')).toBe('true');
   });
   it('cancels pending collapse on clear and supports reused message IDs', () => {
-    start(v5Defaults, { variant: 'row', grouped: false }); vi.useFakeTimers();
+    start(v5Defaults, { variant: 'row', grouped: false, autoExpand: true }); vi.useFakeTimers();
     inject('tool1', 'running', ['one']); inject('tool1', 'complete', ['one']); controller.clearChat();
     inject('tool1', 'running', ['new']); vi.advanceTimersByTime(1100); expect(header('tool1').getAttribute('aria-expanded')).toBe('true');
     controller.destroy(); vi.advanceTimersByTime(1100);
@@ -47,7 +62,7 @@ describe.each([false, true])('activity UI (V5 %s)', v5Defaults => {
     inject('tool1', 'running', ['one']); expect(header('tool1').hasAttribute('data-expand-header')).toBe(false);
   });
   it('uses the same first-token lifecycle for reasoning', () => {
-    controller = createAgentExperience(mount, { future: { v5Defaults }, apiUrl: '/test', persistState: false, launcher: { enabled: false }, features: { reasoningDisplay: { variant: 'row', autoCollapseDelay: 50 } } });
+    controller = createAgentExperience(mount, { future: { v5Defaults }, apiUrl: '/test', persistState: false, launcher: { enabled: false }, features: { reasoningDisplay: { variant: 'row', autoExpand: true, autoCollapseDelay: 50 } } });
     vi.useFakeTimers();
     const m: AgentWidgetMessage = { id: 'r1', role: 'assistant', content: '', createdAt: '2026-01-01', variant: 'reasoning', reasoning: { id: 'r1', status: 'streaming', chunks: ['Thinking'] } };
     controller.injectTestMessage({ type: 'message', message: m }); expect(header('r1').getAttribute('aria-expanded')).toBe('true');
