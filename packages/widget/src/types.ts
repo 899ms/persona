@@ -2214,6 +2214,8 @@ export type AgentWidgetToolCallLoadingAnimation =
 export type AgentWidgetToolCallDisplayFeature = {
   /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
   variant?: "card" | "row";
+  /** Row status icons: always, active/attention-needed only, or never. V5 defaults to active; V4 to always. */
+  iconVisibility?: "always" | "active" | "never";
   /** Row variant: open when the first content chunk arrives. Default false in V5; true in V4. */
   autoExpand?: boolean;
   /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */
@@ -2286,6 +2288,8 @@ export type AgentWidgetToolCallCompletedVisibility = "kept" | "removed";
 export type AgentWidgetReasoningDisplayFeature = {
   /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
   variant?: "card" | "row";
+  /** Row status icons: always, active/attention-needed only, or never. V5 defaults to active; V4 to always. */
+  iconVisibility?: "always" | "active" | "never";
   /** Row variant: open when the first content chunk arrives. Default false in V5; true in V4. */
   autoExpand?: boolean;
   /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */

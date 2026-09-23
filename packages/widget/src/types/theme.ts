@@ -656,12 +656,18 @@ export interface ActivityTokens {
   groupGap?: string;
   /** Padding around expanded group children. V5: 0px. */
   groupPadding?: string;
-  /** Gap between consecutive activity entries. V5: 4px. */
+  /** Gap between consecutive activity entries. V5: 0px. */
   transcriptGap?: string;
   /** Gap from activity to an assistant response. V5: 12px. */
   responseGap?: string;
   /** Expanded body padding. V5: 4px 0. */
   bodyPadding?: string;
+  /** Expanded reasoning text size. V5: 13px. */
+  bodySize?: string;
+  /** Expanded reasoning line height. V5: 1.5. */
+  bodyLineHeight?: string;
+  /** Expanded reasoning font weight. V5: 400. */
+  bodyFontWeight?: string;
   /** Gap between expanded detail sections. V5: 8px. */
   sectionGap?: string;
   labelSize?: string;

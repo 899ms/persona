@@ -7368,3 +7368,9 @@
 .persona-widget-messages > [data-message-role]:has(.persona-activity-row) + [data-message-role="assistant"]:not(:has(.persona-activity-row)) {
   margin-top:calc(var(--persona-components-activity-responseGap, var(--persona-transcript-gap)) - var(--persona-transcript-gap));
 }
+
+.persona-reasoning-bubble.persona-activity-row > .persona-activity-body > .persona-whitespace-pre-wrap {
+  font-size:var(--persona-components-activity-bodySize, 12px);
+  line-height:var(--persona-components-activity-bodyLineHeight, inherit);
+  font-weight:var(--persona-components-activity-bodyFontWeight, inherit);
+}

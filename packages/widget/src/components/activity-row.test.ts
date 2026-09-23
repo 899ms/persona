@@ -16,6 +16,27 @@ describe.each([false, true])('activity rows (V5 %s)', v5Defaults => {
       if (variant === 'row') { expect(node.textContent).toContain('Used Search'); expect(node.textContent).toContain('1m 5s'); }
     }
   });
+  it('resolves icon visibility and removes the icon slot on successful completion', () => {
+    for (const kind of ['tool', 'reasoning'] as const) {
+      for (const mode of [undefined, 'always', 'active', 'never'] as const) {
+        const key = kind === 'tool' ? 'toolCallDisplay' : 'reasoningDisplay';
+        const config = { future: { v5Defaults }, features: { [key]: { variant: 'row' as const, iconVisibility: mode } } };
+        const m = message('complete');
+        const node = kind === 'tool' ? createToolBubble(m, config) : createReasoningBubble({ ...m, toolCall: undefined, variant: 'reasoning', reasoning: { id: 'r', status: 'complete', chunks: ['Details'] } }, config);
+        expect(!!node.querySelector('.persona-activity-icon')).toBe((mode ?? (v5Defaults ? 'active' : 'always')) === 'always');
+        expect(node.querySelector('.persona-activity-chevron')).not.toBeNull();
+      }
+    }
+  });
+  it('keeps attention and active indicators unless explicitly disabled', () => {
+    for (const status of ['pending', 'running', 'complete'] as const) {
+      const m = message(status); if (status === 'complete') m.toolCall!.success = false;
+      for (const iconVisibility of ['active', 'never'] as const) {
+        const node = createToolBubble(m, { future: { v5Defaults }, features: { toolCallDisplay: { variant: 'row', iconVisibility } } });
+        expect(!!node.querySelector('.persona-activity-icon')).toBe(iconVisibility === 'active');
+      }
+    }
+  });
   it('keeps custom content and exposes accessible row controls', () => {
     const node = createToolBubble(message(), { future: { v5Defaults }, features: { toolCallDisplay: { variant: 'row' } }, toolCall: { renderCollapsedSummary: () => 'Custom summary' } });
     expect(node.textContent?.replace(/\u00a0/g, ' ')).toContain('Custom summary');

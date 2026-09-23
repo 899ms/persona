@@ -2962,6 +2962,13 @@ after the label, and indented details. Tool labels include their name (`Using Se
 as `Thought for 1m 5s`. Existing text templates and custom summary/body render hooks
 remain available. `expandable: false` disables disclosure.
 
+Both display configs accept `iconVisibility: "always" | "active" | "never"`.
+V5 defaults to `"active"`: pending/running, error, denied, and approval-waiting
+indicators remain visible; successful completion icons disappear without leaving
+an empty icon slot. V4 rows default to `"always"`. `"never"` hides all leading
+status icons. Disclosure chevrons remain available in all modes. This option
+also applies to grouped row summaries; custom summary content controls its own icons.
+
 V5 tool and reasoning rows stay collapsed while streaming (`autoExpand: false`).
 Set `autoExpand: true` on either display config to open on the first content chunk;
 this remains the default for rows explicitly selected in V4. Rows collapse once,
@@ -2980,9 +2987,9 @@ The existing `"stack"` and `"summary"` grouping modes keep their behavior.
 
 `theme.components.activity` accepts `rowHeight` (32px), `labelSize` (13px),
 `iconSize` (16px), `indent` (0px for details), `groupIndent` (0px for grouped children),
-`transcriptGap` (4px between consecutive activity entries), `responseGap` (12px
-before an assistant response), `groupGap` (0px extra between child rows), `groupPadding` (0px around children), `bodyPadding` (4px 0), `sectionGap`
-(8px between detail sections), and `bodySurface` (transparent). These are V5
+`transcriptGap` (0px between consecutive activity entries), `responseGap` (12px
+before an assistant response), `groupGap` (0px extra between child rows), `groupPadding` (0px around children), `bodyPadding` (4px 0), `bodySize` (13px), `bodyLineHeight` (1.5), and `bodyFontWeight` (400) for
+expanded reasoning text, `sectionGap` (8px between detail sections), and `bodySurface` (transparent). These are V5
 emitted defaults. V4 retains its existing row spacing fallbacks. Per-kind aliases with the same names
 under `toolBubble` and `reasoningBubble` remain available. Explicit shared activity
 tokens take precedence over those aliases; explicit legacy `collapsibleWidget.surface`

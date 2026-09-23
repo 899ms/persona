@@ -55,7 +55,10 @@ export function applyActivityRow(bubble: HTMLElement, message: AgentWidgetMessag
     : renderLucideIcon(names[state], 16, "currentColor", 2);
   if (glyph) icon.appendChild(glyph);
   header.querySelector(".persona-reasoning-header-icon")?.remove();
-  header.prepend(icon);
+  const displayKey = kind === "tool" ? "toolCallDisplay" : "reasoningDisplay";
+  const visibility = config.features?.[displayKey]?.iconVisibility ??
+    (config.future?.v5Defaults ? "active" : "always");
+  if (visibility === "always" || (visibility === "active" && state !== "done")) header.prepend(icon);
   if (kind === "tool" && data) {
     const duration = createElement("span", "persona-activity-duration");
     if (active && data.startedAt) duration.setAttribute("data-tool-elapsed", String(data.startedAt));
