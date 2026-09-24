@@ -13,7 +13,6 @@ const base: ComposerCompactInput = {
   hasChips: false,
   hasQuote: false,
   hasPendingSubmission: false,
-  dictationActive: false,
 };
 
 describe("isComposerCompact", () => {
@@ -38,7 +37,6 @@ describe("isComposerCompact", () => {
     ["hasChips"],
     ["hasQuote"],
     ["hasPendingSubmission"],
-    ["dictationActive"],
   ] as const)("%s expands an otherwise empty composer", (key) => {
     expect(isComposerCompact({ ...base, [key]: true })).toBe(false);
   });

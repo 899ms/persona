@@ -4501,8 +4501,9 @@ export type AgentWidgetComposerConfig = {
    *
    * `"single-row"` describes the IDLE composer only. It composes with the
    * compact state, so a wrapped draft, chips, attachment previews, a quote, a
-   * pending card, or live dictation all fall back to the stacked card, exactly
-   * as `data-persona-composer-compact` does today.
+   * pending card all fall back to the stacked card, exactly
+   * as `data-persona-composer-compact` does today. Recording alone does not
+   * expand the composer; dictated text expands it when it wraps.
    *
    * Ignored in composer-bar mount mode, whose pill is already one row.
    * @default "stacked"

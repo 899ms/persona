@@ -986,9 +986,9 @@ textarea is still pinned to `1rem` so iOS Safari does not zoom on focus.
 #### Compact state (`data-persona-composer-compact`)
 
 The composer footer carries `data-persona-composer-compact` while the composer
-is idle: the draft is empty or a single line, and there are no attachments, no
-mention chips, no active mode chips, no quote, no pending submission, and no
-live dictation.
+has no extra content: the draft is empty or a single line, and there are no attachments, no
+mention chips, no active mode chips, no quote, and no pending submission. Audio capture does not change this state;
+dictated text expands the composer only when it becomes multiline or wraps.
 
 Core CSS attaches no layout to it. It is a hook for your own theme:
 
@@ -1016,7 +1016,7 @@ composer: { layout: "single-row" }
 Configuring it stamps `data-persona-composer-layout="single-row"` on the footer;
 leaving it unset stamps nothing, so host CSS keeps owning the form. The core
 rules are gated on `data-persona-composer-compact`, so a wrapped draft, chips,
-attachment previews, a quote, a pending card, or live dictation fall back to the
+attachment previews, a quote, or a pending card fall back to the
 stacked card. Ignored in `launcher.mountMode: "composer-bar"`, whose pill is
 already one row.
 

@@ -2550,9 +2550,6 @@ export const createAgentExperience = (
       pruneComposerModes(state.activeModeIds, composerChipModes()).length > 0
     );
   };
-  // Bound once `voiceState` exists (further down this closure); the compact
-  // sweep can run before then only via a microtask, which is later still.
-  let isDictationActive: () => boolean = () => false;
   function syncComposerCompact(): void {
     const state = composerStore.getState();
     const wrapped = composerCompactLatch.observe(
@@ -2568,7 +2565,6 @@ export const createAgentExperience = (
         hasChips: hasComposerChips(),
         hasQuote: state.quote !== undefined,
         hasPendingSubmission: state.pendingSubmission !== undefined,
-        dictationActive: isDictationActive(),
       })
     );
   }
@@ -5338,7 +5334,6 @@ export const createAgentExperience = (
     lastUserMessageWasVoice: false,
     lastUserMessageId: null as string | null
   };
-  isDictationActive = () => voiceState.active;
   // First stamp: an untouched composer emits no store change, so the attribute
   // would otherwise not appear until the first keystroke.
   syncComposerCompact();
@@ -12588,7 +12583,7 @@ export const createAgentExperience = (
       }
       emitVoiceState(source);
       persistVoiceMetadata();
-      // Live dictation is a composer occupant; the store emits nothing for it.
+      // Reconcile content geometry without treating recording as extra content.
       syncComposerCompact();
       if (micButton) {
         // Store original styles (including icon info for restoration)

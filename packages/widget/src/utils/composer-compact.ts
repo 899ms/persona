@@ -18,13 +18,12 @@ export type ComposerCompactInput = {
   hasChips: boolean;
   hasQuote: boolean;
   hasPendingSubmission: boolean;
-  dictationActive: boolean;
 };
 
 /**
  * Compact when the draft is empty or a single line and nothing else occupies
  * the composer. Text alone is not enough: any chip, attachment, quote, pending
- * submission, or live dictation expands it.
+ * submission expands it. Recording state alone does not affect layout.
  */
 export function isComposerCompact(input: ComposerCompactInput): boolean {
   if (input.wrapped) return false;
@@ -33,8 +32,7 @@ export function isComposerCompact(input: ComposerCompactInput): boolean {
     input.hasAttachments ||
     input.hasChips ||
     input.hasQuote ||
-    input.hasPendingSubmission ||
-    input.dictationActive
+    input.hasPendingSubmission
   );
 }
 

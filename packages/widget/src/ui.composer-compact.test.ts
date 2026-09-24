@@ -157,7 +157,7 @@ describe.each([false, true])("composer compact state (v5Defaults: %s)", (v5Defau
     expect(isCompact(mount)).toBe(true);
   });
 
-  it("expands while dictation is active", async () => {
+  it("keeps recording compact until its text needs more space", async () => {
     class FakeRecognition {
       continuous = false;
       interimResults = false;
@@ -171,12 +171,26 @@ describe.each([false, true])("composer compact state (v5Defaults: %s)", (v5Defau
     vi.stubGlobal("SpeechRecognition", FakeRecognition);
     const { mount, controller } = makeController({
       voiceRecognition: { enabled: true },
+      composer: { layout: "single-row" },
     });
     await flush();
     expect(isCompact(mount)).toBe(true);
     controller.startVoiceRecognition();
     await type(mount, "");
+    expect(isCompact(mount)).toBe(true);
+    const mic = mount.querySelector<HTMLElement>('[data-persona-composer-mic]')!;
+    expect(mic.dataset.state).toBe('recording');
+    expect(mic.getAttribute('aria-label')).toBe('Stop voice recognition');
+    await type(mount, "Short dictated text");
+    expect(isCompact(mount)).toBe(true);
+    await type(mount, "First line\nSecond line");
     expect(isCompact(mount)).toBe(false);
+    expect(mic.dataset.state).toBe('recording');
+    controller.stopVoiceRecognition();
+    expect(isCompact(mount)).toBe(false);
+    expect(mic.dataset.state).toBe('idle');
+    await type(mount, "");
+    expect(isCompact(mount)).toBe(true);
     vi.unstubAllGlobals();
   });
 });
