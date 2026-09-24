@@ -3113,6 +3113,25 @@
   padding: 0;
 }
 
+/* Inline per-control styles take precedence over these theme defaults. */
+.persona-header-control.persona-rounded-full {
+  border-radius: var(--persona-components-header-controlBorderRadius, 9999px);
+}
+.persona-header-control:hover,
+.persona-header-control:focus-visible {
+  --persona-header-control-state-fg: var(--persona-components-header-controlHoverForeground);
+}
+.persona-header-control.hover\:persona-bg-gray-100:hover {
+  background-color: var(--persona-components-header-controlHoverBackground);
+}
+.persona-header-control:focus-visible {
+  background-color: var(--persona-components-header-controlHoverBackground);
+  outline: var(--persona-components-header-controlFocusOutline, revert);
+}
+[data-persona-defaults="v5"] .persona-header-control:focus-visible {
+  outline-offset: 2px;
+}
+
 .persona-header-control--glyph > svg {
   width: var(--persona-header-control-icon-size, 20px);
   height: var(--persona-header-control-icon-size, 20px);

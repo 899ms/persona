@@ -610,7 +610,12 @@ export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
     padding: '8px 8px 8px 16px', minimalPadding: '8px 8px 8px 16px',
     minHeight: '48px', borderBottom: 'none',
     iconBackground: 'transparent', iconForeground: 'semantic.colors.text', iconScale: '1',
-    controlSize: '28px', controlIconSize: '18px',
+    controlSize: '28px', controlIconSize: '18px', controlStrokeWidth: '1.5',
+    actionIconForeground: 'semantic.colors.textMuted',
+    controlBorderRadius: '8px',
+    controlHoverBackground: 'color-mix(in srgb, var(--persona-text) 8%, transparent)',
+    controlHoverForeground: 'semantic.colors.text',
+    controlFocusOutline: '2px solid color-mix(in srgb, var(--persona-text) 50%, transparent)',
     title: { fontSize: '14px', fontWeight: '500', lineHeight: '1.5' },
   },
   message: {

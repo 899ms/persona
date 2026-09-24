@@ -11,7 +11,7 @@ export const HEADER_THEME_CSS = {
   subtitleColor:
     "var(--persona-header-subtitle-fg, var(--persona-text-muted, var(--persona-muted, #9ca3af)))",
   actionIconColor:
-    "var(--persona-header-action-icon-fg, var(--persona-muted, #9ca3af))",
+    "var(--persona-header-control-state-fg, var(--persona-header-action-icon-fg, var(--persona-muted, #9ca3af)))",
   /** One knob for both header builders; the Messages rail header shares it. */
   minHeight: "var(--persona-header-min-height, auto)",
 } as const;

@@ -3009,3 +3009,11 @@ It softly fades the top 18px of the transcript only when content has scrolled
 above the viewport. Set `layout: { topFade: false }` to disable it, or opt in
 with `true` in either defaults state. Customize its height through
 `theme.components.message.topFadeHeight` (for example, `"12px"`).
+
+
+With `future.v5Defaults`, header controls use muted 18px icons in 28px buttons,
+8px corners, a subtle hover/focus fill, and a visible keyboard focus outline.
+Customize these with `components.header.actionIconForeground`,
+`controlBorderRadius`, `controlHoverBackground`, `controlHoverForeground`,
+and `controlFocusOutline`. Explicit per-button colors, backgrounds, and radii
+take precedence. V4 leaves these new tokens unset.

@@ -322,6 +322,14 @@ export interface HeaderTokens extends ComponentTokenSet {
    * sibling. @default "1.5"
    */
   controlStrokeWidth?: string;
+  /** Header control corner radius. Per-control radius overrides win. */
+  controlBorderRadius?: string;
+  /** Default control hover/focus fill. Explicit button backgrounds win. */
+  controlHoverBackground?: TokenReference<'color'>;
+  /** Default control hover/focus icon color. Explicit button colors win. */
+  controlHoverForeground?: TokenReference<'color'>;
+  /** Keyboard focus outline; unset preserves the browser default. */
+  controlFocusOutline?: string;
   /** Box-shadow on the header (e.g., a fade shadow to replace the default border). */
   shadow?: string;
   /** Override the header bottom border (e.g., `none`). */

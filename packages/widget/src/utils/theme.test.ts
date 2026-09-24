@@ -1476,3 +1476,18 @@ describe.each(['light', 'dark'] as const)('V5 header surface (%s)', colorScheme 
     expect(custom['--persona-header-bg']).toBe('#123456');
   });
 });
+
+describe('V5 header control surfaces', () => {
+  it('keeps V4 tokens unset and preserves explicit V5 overrides', () => {
+    const legacy = themeToCssVariables(createTheme());
+    const v5 = themeToCssVariables(createTheme(undefined, { future: { v5Defaults: true } }));
+    expect(legacy['--persona-components-header-controlBorderRadius']).toBeUndefined();
+    expect(v5['--persona-components-header-controlBorderRadius']).toBe('8px');
+    expect(v5['--persona-components-header-controlHoverBackground']).toContain('8%');
+    const custom = themeToCssVariables(createTheme({
+      components: { header: { controlBorderRadius: '4px', controlHoverBackground: 'red' } },
+    }, { future: { v5Defaults: true } }));
+    expect(custom['--persona-components-header-controlBorderRadius']).toBe('4px');
+    expect(custom['--persona-components-header-controlHoverBackground']).toBe('red');
+  });
+});
