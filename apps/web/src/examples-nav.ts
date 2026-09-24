@@ -335,6 +335,16 @@ export const ADVANCED_EXAMPLES: readonly AdvancedExample[] = [
     tags: ["streaming", "scroll", "a11y", "dev"],
     modes: ["launcher"],
   },
+  {
+    slug: "v5-preview",
+    href: "/v5-preview.html",
+    title: "V5 Preview",
+    blurb: "Explore upcoming defaults: welcome layouts, tool details, activity rows, and a quieter composer. Runs locally without an API key.",
+    badge: "Preview",
+    tier: "reference",
+    tags: ["v5", "theming", "tools", "streaming"],
+    modes: ["inline"],
+  },
 ];
 
 export function isGalleryExample(example: AdvancedExample): boolean {

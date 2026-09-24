@@ -1,3 +1,4 @@
+import { appendToolDetails } from "./tool-details";
 import { applyActivityRow, activityDisplay, activityVariant } from "./activity-row";
 import { createElement, createNode } from "../utils/dom";
 import { AgentWidgetMessage, AgentWidgetConfig } from "../types";
@@ -344,105 +345,110 @@ export const createToolBubble = (
     content.style.paddingBottom = toolCallConfig.contentPaddingY;
   }
 
-  // Add tool name at the top of content
-  if (tool.name) {
-    const toolName = createElement("div", "persona-text-xs persona-text-persona-muted persona-italic");
-    if (toolCallConfig.contentTextColor) {
-      toolName.style.color = toolCallConfig.contentTextColor;
-    } else if (toolCallConfig.headerTextColor) {
-      toolName.style.color = toolCallConfig.headerTextColor;
+  if (config.future?.v5Defaults === true) {
+    appendToolDetails(content, message, config);
+  } else {
+    // Add tool name at the top of content
+    if (tool.name) {
+      const toolName = createElement("div", "persona-text-xs persona-text-persona-muted persona-italic");
+      if (toolCallConfig.contentTextColor) {
+        toolName.style.color = toolCallConfig.contentTextColor;
+      } else if (toolCallConfig.headerTextColor) {
+        toolName.style.color = toolCallConfig.headerTextColor;
+      }
+      toolName.textContent = tool.name;
+      content.appendChild(toolName);
     }
-    toolName.textContent = tool.name;
-    content.appendChild(toolName);
-  }
 
-  if (tool.args !== undefined) {
-    const argsBlock = createElement("div", "persona-space-y-1");
-    const argsLabel = createElement(
-      "div",
-      "persona-text-xs persona-text-persona-muted"
-    );
-    if (toolCallConfig.labelTextColor) {
-      argsLabel.style.color = toolCallConfig.labelTextColor;
+    if (tool.args !== undefined) {
+      const argsBlock = createElement("div", "persona-space-y-1");
+      const argsLabel = createElement(
+        "div",
+        "persona-text-xs persona-text-persona-muted"
+      );
+      if (toolCallConfig.labelTextColor) {
+        argsLabel.style.color = toolCallConfig.labelTextColor;
+      }
+      argsLabel.textContent = "Arguments";
+      const argsPre = createElement(
+        "pre",
+        "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
+      );
+      // Ensure font size matches header text (0.75rem / 12px)
+      argsPre.style.fontSize = "0.75rem";
+      argsPre.style.lineHeight = "1rem";
+      applyToolCodeBlockColors(argsPre, toolCallConfig);
+      argsPre.textContent = formatUnknownValue(tool.args);
+      argsBlock.append(argsLabel, argsPre);
+      content.appendChild(argsBlock);
     }
-    argsLabel.textContent = "Arguments";
-    const argsPre = createElement(
-      "pre",
-      "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
-    );
-    // Ensure font size matches header text (0.75rem / 12px)
-    argsPre.style.fontSize = "0.75rem";
-    argsPre.style.lineHeight = "1rem";
-    applyToolCodeBlockColors(argsPre, toolCallConfig);
-    argsPre.textContent = formatUnknownValue(tool.args);
-    argsBlock.append(argsLabel, argsPre);
-    content.appendChild(argsBlock);
-  }
 
-  if (tool.chunks && tool.chunks.length) {
-    const logsBlock = createElement("div", "persona-space-y-1");
-    const logsLabel = createElement(
-      "div",
-      "persona-text-xs persona-text-persona-muted"
-    );
-    if (toolCallConfig.labelTextColor) {
-      logsLabel.style.color = toolCallConfig.labelTextColor;
+    if (tool.chunks && tool.chunks.length) {
+      const logsBlock = createElement("div", "persona-space-y-1");
+      const logsLabel = createElement(
+        "div",
+        "persona-text-xs persona-text-persona-muted"
+      );
+      if (toolCallConfig.labelTextColor) {
+        logsLabel.style.color = toolCallConfig.labelTextColor;
+      }
+      logsLabel.textContent = "Activity";
+      const logsPre = createElement(
+        "pre",
+        "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
+      );
+      // Ensure font size matches header text (0.75rem / 12px)
+      logsPre.style.fontSize = "0.75rem";
+      logsPre.style.lineHeight = "1rem";
+      applyToolCodeBlockColors(logsPre, toolCallConfig);
+      logsPre.textContent = tool.chunks.join("");
+      logsBlock.append(logsLabel, logsPre);
+      content.appendChild(logsBlock);
     }
-    logsLabel.textContent = "Activity";
-    const logsPre = createElement(
-      "pre",
-      "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
-    );
-    // Ensure font size matches header text (0.75rem / 12px)
-    logsPre.style.fontSize = "0.75rem";
-    logsPre.style.lineHeight = "1rem";
-    applyToolCodeBlockColors(logsPre, toolCallConfig);
-    logsPre.textContent = tool.chunks.join("");
-    logsBlock.append(logsLabel, logsPre);
-    content.appendChild(logsBlock);
-  }
 
-  if (tool.success === false) {
-    content.appendChild(createNode("div", {
-      className: "persona-text-sm persona-whitespace-pre-wrap",
-      text: tool.error || "Tool failed",
-      attrs: { "data-persona-tool-error": "" },
-    }));
-  }
-
-  if (tool.status === "complete" && tool.result !== undefined) {
-    const resultBlock = createElement("div", "persona-space-y-1");
-    const resultLabel = createElement(
-      "div",
-      "persona-text-xs persona-text-persona-muted"
-    );
-    if (toolCallConfig.labelTextColor) {
-      resultLabel.style.color = toolCallConfig.labelTextColor;
+    if (tool.success === false) {
+      content.appendChild(createNode("div", {
+        className: "persona-text-sm persona-whitespace-pre-wrap",
+        text: tool.error || "Tool failed",
+        attrs: { "data-persona-tool-error": "" },
+      }));
     }
-    resultLabel.textContent = "Result";
-    const resultPre = createElement(
-      "pre",
-      "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
-    );
-    // Ensure font size matches header text (0.75rem / 12px)
-    resultPre.style.fontSize = "0.75rem";
-    resultPre.style.lineHeight = "1rem";
-    applyToolCodeBlockColors(resultPre, toolCallConfig);
-    resultPre.textContent = formatUnknownValue(tool.result);
-    resultBlock.append(resultLabel, resultPre);
-    content.appendChild(resultBlock);
-  }
 
-  if (tool.status === "complete" && typeof tool.duration === "number") {
-    const duration = createElement(
-      "div",
-      "persona-text-xs persona-text-persona-muted"
-    );
-    if (toolCallConfig.contentTextColor) {
-      duration.style.color = toolCallConfig.contentTextColor;
+    if (tool.status === "complete" && tool.result !== undefined) {
+      const resultBlock = createElement("div", "persona-space-y-1");
+      const resultLabel = createElement(
+        "div",
+        "persona-text-xs persona-text-persona-muted"
+      );
+      if (toolCallConfig.labelTextColor) {
+        resultLabel.style.color = toolCallConfig.labelTextColor;
+      }
+      resultLabel.textContent = "Result";
+      const resultPre = createElement(
+        "pre",
+        "persona-max-h-48 persona-overflow-auto persona-whitespace-pre-wrap persona-rounded-lg persona-border persona-px-3 persona-py-2 persona-text-xs"
+      );
+      // Ensure font size matches header text (0.75rem / 12px)
+      resultPre.style.fontSize = "0.75rem";
+      resultPre.style.lineHeight = "1rem";
+      applyToolCodeBlockColors(resultPre, toolCallConfig);
+      resultPre.textContent = formatUnknownValue(tool.result);
+      resultBlock.append(resultLabel, resultPre);
+      content.appendChild(resultBlock);
     }
-    duration.textContent = `Duration: ${tool.duration}ms`;
-    content.appendChild(duration);
+
+    if (tool.status === "complete" && typeof tool.duration === "number") {
+      const duration = createElement(
+        "div",
+        "persona-text-xs persona-text-persona-muted"
+      );
+      if (toolCallConfig.contentTextColor) {
+        duration.style.color = toolCallConfig.contentTextColor;
+      }
+      duration.textContent = `Duration: ${tool.duration}ms`;
+      content.appendChild(duration);
+    }
+
   }
 
   applyExpansionDisplay({ expanded, header, toggleIcon, content, collapsedPreview, iconColor });

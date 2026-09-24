@@ -70,3 +70,22 @@ describe.each([false, true])('activity UI (V5 %s)', v5Defaults => {
     vi.advanceTimersByTime(50); expect(header('r1').getAttribute('aria-expanded')).toBe('false');
   });
 });
+
+it('copies current tool output after a streaming DOM update', async () => {
+  start(true, { grouped: false });
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  try {
+    inject('tool1', 'running', ['first']);
+    header('tool1').click();
+    inject('tool1', 'complete', ['updated output']);
+    mount.querySelector<HTMLButtonElement>('[data-persona-copy-tool-detail]')!.click();
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith('updated output');
+    expect(header('tool1').getAttribute('aria-expanded')).toBe('true');
+  } finally {
+    if (original) Object.defineProperty(navigator, 'clipboard', original);
+    else Reflect.deleteProperty(navigator, 'clipboard');
+  }
+});

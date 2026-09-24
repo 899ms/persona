@@ -268,6 +268,7 @@ import {
   CUSTOM_MESSAGE_ACTION_PREFIX,
 } from "./components/message-bubble";
 import { createReasoningBubble, updateReasoningBubbleUI } from "./components/reasoning-bubble";
+import { copyToolDetail } from "./components/tool-details";
 import { createToolBubble, updateToolBubbleUI } from "./components/tool-bubble";
 import {
   buildStructuredAnswers,
@@ -2706,6 +2707,16 @@ export const createAgentExperience = (
 
   // Render custom slots
   renderSlots();
+
+  messagesWrapper.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest<HTMLButtonElement>("button[data-persona-copy-tool-detail]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void copyToolDetail(button);
+  });
 
   // Add event delegation for reasoning and tool bubble expansion
   // This handles clicks even after idiomorph morphs the DOM

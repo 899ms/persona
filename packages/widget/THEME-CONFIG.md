@@ -1521,7 +1521,7 @@ createAgentExperience(mountElement, {
 
 The flag selects defaults only. Explicit widget configuration and explicit theme
 tokens still take precedence. The opt-in currently changes the core transcript,
-header, composer, panel, and dark palette defaults. The centered welcome and activity rows arrive in later phases.
+header, composer, panel, and dark palette defaults. It also includes centered welcome layouts and compact activity rows.
 
 With the flag enabled, `colorScheme: "dark"` (or an automatically detected dark
 scheme) uses a `#0f0f10` canvas, `#1a1a1b` surface, `#27272a` user bubble,
@@ -3017,3 +3017,25 @@ Customize these with `components.header.actionIconForeground`,
 `controlBorderRadius`, `controlHoverBackground`, `controlHoverForeground`,
 and `controlFocusOutline`. Explicit per-button colors, backgrounds, and radii
 take precedence. V4 leaves these new tokens unset.
+
+
+### V5 tool details
+
+With `future.v5Defaults: true`, expanded tools show **Request** and **Response**
+blocks. Empty requests (absent, null, blank, empty object or array) are omitted.
+Response shows streamed chunks until a completed tool supplies a result, which
+replaces the chunks. Errors remain visible. Text uses the UI font; objects and
+arrays use monospace. Long output scrolls inside the block.
+
+The copy icon appears on hover or keyboard focus, and stays visible on touch
+screens. It copies the complete block and changes to a check for 1.8 seconds.
+Clipboard access requires browser permission and a secure context (or localhost).
+
+Existing `toolCall.codeBlockBackgroundColor`, `codeBlockTextColor`,
+`codeBlockBorderColor`, and `labelTextColor` overrides still apply. Custom tool
+renderers remain available. V4 retains Arguments / Activity / Result sections.
+
+For optional descriptive group labels without additional configuration APIs,
+see the [frontend mapping recipe](../../examples/ai-sdk-next/README.md#optional-descriptive-group-labels).
+It uses `toolCall.renderGroupedSummary` with explicit tool categories, deduplicated
+labels, and a built-in-summary fallback for unknown tools or attention states.

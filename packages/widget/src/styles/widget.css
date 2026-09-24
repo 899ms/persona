@@ -6844,7 +6844,9 @@
   border-radius: 9999px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   color: var(--persona-primary, #111827);
-  font: inherit;
+  font-family: inherit;
+  font-weight: 400;
+  font-style: normal;
   font-size: 13px;
   line-height: 1.4;
   cursor: pointer;
@@ -7393,3 +7395,61 @@
   line-height:var(--persona-components-activity-bodyLineHeight, inherit);
   font-weight:var(--persona-components-activity-bodyFontWeight, inherit);
 }
+
+/* V5 tool details: a single request/response surface, plain text or structured data. */
+.persona-tool-detail {
+  position: relative;
+  padding: 10px 12px;
+  border: 0 solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--persona-muted) 5%, transparent);
+}
+.persona-tool-detail-label {
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--persona-muted);
+  padding-right: 32px;
+  margin-bottom: 5px;
+}
+.persona-tool-detail .persona-tool-detail-value {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--persona-text);
+  font-family: inherit;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
+.persona-tool-detail .persona-tool-detail-code { font-family: var(--persona-font-mono, monospace); font-size: 12px; }
+.persona-tool-detail-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--persona-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+.persona-tool-detail:hover .persona-tool-detail-copy,
+.persona-tool-detail:focus-within .persona-tool-detail-copy,
+.persona-tool-detail-copy[data-copied="true"] { opacity: 1; }
+.persona-tool-detail-copy:hover { color: var(--persona-text); background: color-mix(in srgb, var(--persona-muted) 12%, transparent); }
+.persona-tool-detail-copy:focus-visible { outline: 2px solid var(--persona-primary); outline-offset: 2px; }
+@media (hover: none) { .persona-tool-detail-copy { opacity: 1; } }
+@media (pointer: coarse) { .persona-tool-detail-copy { width: 40px; height: 40px; top: 2px; right: 2px; } }
