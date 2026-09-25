@@ -101,3 +101,12 @@ describe.each([false, true])("resolvePanelGeometry (v5=%s)", (v5Defaults) => {
     );
   });
 });
+
+describe.each([false, true])('inline width (V5=%s)', v5Defaults => {
+  it('fills the host with inherited defaults and honors explicit widths', () => {
+    const config = { future: { v5Defaults }, launcher: { enabled: false } };
+    expect(createWrapper(mergeWithDefaults(config)).wrapper.style.width).toBe('100%');
+    expect(createWrapper(mergeWithDefaults({ ...config, launcher: { enabled: false, width: '600px' } })).wrapper.style.width).toBe('600px');
+    expect(createWrapper(mergeWithDefaults({ ...config, theme: { components: { panel: { width: '700px' } } } })).wrapper.style.width).toBe('var(--persona-components-panel-width)');
+  });
+});

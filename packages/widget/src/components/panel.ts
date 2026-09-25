@@ -151,7 +151,10 @@ export const createWrapper = (config?: AgentWidgetConfig): PanelWrapper => {
     );
     
     // Apply width from config, defaulting to 100% for inline embed mode
-    const inlineWidth = resolvePanelGeometry(config).width;
+    const aliases = getPanelAliasProvenance(config);
+    const hasWidth = aliases.launcherWidth || aliases.legacyLauncherWidth ||
+      config?.theme?.components?.panel?.width !== undefined;
+    const inlineWidth = hasWidth ? resolvePanelGeometry(config).width : "100%";
     wrapper.style.width = inlineWidth;
     panel.style.width = "100%";
     
