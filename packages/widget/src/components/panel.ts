@@ -1,5 +1,4 @@
 import { createElement, createNode } from "../utils/dom";
-import { DEFAULT_FLOATING_LAUNCHER_WIDTH } from "../defaults";
 import { AgentWidgetConfig, AgentWidgetSuggestionSurface } from "../types";
 import { suggestionSurfaceAttr } from "./suggestions";
 import { positionMap } from "../utils/positioning";
@@ -20,6 +19,42 @@ import {
 } from "./welcome";
 import { isWelcomeVisible, resolveWelcomeConfig } from "../welcome";
 import { resolveContentMaxWidth } from "../utils/content-width";
+import { getPanelAliasProvenance, PANEL_WIDTH_VAR } from "../utils/panel-config";
+
+const PANEL_MAX_WIDTH_VAR = "var(--persona-components-panel-maxWidth)";
+const PANEL_HEIGHT_VAR = "var(--persona-components-panel-height)";
+const PANEL_MAX_HEIGHT_VAR = "var(--persona-components-panel-maxHeight)";
+
+export type PanelGeometry = {
+  width: string;
+  maxWidth: string;
+  height: string;
+  maxHeight: string;
+};
+
+/**
+ * Legacy aliases win when a caller explicitly supplied them; otherwise the
+ * resolved panel token variables own geometry. Provenance keeps a materialized
+ * launcher default from masquerading as a legacy override after config merge.
+ */
+export const resolvePanelGeometry = (config?: AgentWidgetConfig): PanelGeometry => {
+  const aliases = getPanelAliasProvenance(config);
+  const legacyWidth = aliases.launcherWidth
+    ? config?.launcher?.width
+    : aliases.legacyLauncherWidth
+      ? config?.launcherWidth
+      : undefined;
+  const heightOffset = config?.launcher?.heightOffset ?? 0;
+  const height = heightOffset === 0
+    ? `max(200px, ${PANEL_HEIGHT_VAR})`
+    : `max(200px, calc(${PANEL_HEIGHT_VAR} - ${heightOffset}px))`;
+  return {
+    width: legacyWidth ?? PANEL_WIDTH_VAR,
+    maxWidth: legacyWidth ?? PANEL_MAX_WIDTH_VAR,
+    height,
+    maxHeight: PANEL_MAX_HEIGHT_VAR,
+  };
+};
 
 /**
  * Composer-bar chrome sizes. Not header controls: these float over the
@@ -116,7 +151,10 @@ export const createWrapper = (config?: AgentWidgetConfig): PanelWrapper => {
     );
     
     // Apply width from config, defaulting to 100% for inline embed mode
-    const inlineWidth = config?.launcher?.width ?? "100%";
+    const aliases = getPanelAliasProvenance(config);
+    const hasWidth = aliases.launcherWidth || aliases.legacyLauncherWidth ||
+      config?.theme?.components?.panel?.width !== undefined;
+    const inlineWidth = hasWidth ? resolvePanelGeometry(config).width : "100%";
     wrapper.style.width = inlineWidth;
     panel.style.width = "100%";
     
@@ -140,10 +178,9 @@ export const createWrapper = (config?: AgentWidgetConfig): PanelWrapper => {
     "div",
     "persona-widget-panel persona-relative persona-min-h-[320px]"
   );
-  const launcherWidth = config?.launcher?.width ?? config?.launcherWidth;
-  const width = launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
-  panel.style.width = width;
-  panel.style.maxWidth = width;
+  const geometry = resolvePanelGeometry(config);
+  panel.style.width = geometry.width;
+  panel.style.maxWidth = geometry.maxWidth;
 
   wrapper.appendChild(panel);
   return { wrapper, panel };
@@ -339,8 +376,9 @@ const buildComposerBarPanel = (
 
   const messagesWrapper = createElement(
     "div",
-    "persona-widget-messages persona-flex persona-flex-col persona-gap-3"
+    "persona-widget-messages persona-flex persona-flex-col"
   );
+  messagesWrapper.style.gap = "var(--persona-components-message-gap, 12px)";
   const transcriptSuggestions = createSuggestionHost("followUp");
   const contentMaxWidth = resolveContentMaxWidth(config, true);
   if (contentMaxWidth) {
@@ -471,8 +509,9 @@ export const buildPanel = (config?: AgentWidgetConfig, showClose = true): PanelE
 
   const messagesWrapper = createElement(
     "div",
-    "persona-widget-messages persona-flex persona-flex-col persona-gap-3"
+    "persona-widget-messages persona-flex persona-flex-col"
   );
+  messagesWrapper.style.gap = "var(--persona-components-message-gap, 12px)";
   const transcriptSuggestions = createSuggestionHost("followUp");
 
   const contentMaxWidth = resolveContentMaxWidth(config, false);

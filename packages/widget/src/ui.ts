@@ -1,3 +1,5 @@
+import { activityVariant, activityDuration, createActivityLifecycle, createActivityGroup } from "./components/activity-row";
+import { applyStatusIndicatorState, placeStatusIndicator } from "./utils/status-indicator";
 import { usesSessionVoice } from "./utils/voice-support";
 import { escapeHtml, createMarkdownProcessorFromConfig } from "./postprocessors";
 import { resolveSanitizer } from "./utils/sanitize";
@@ -147,8 +149,9 @@ import {
 } from "./utils/context-mention-orchestrator";
 import type { MentionSubmitBundle } from "./utils/context-mention-manager";
 import { createTextPart, ALL_SUPPORTED_MIME_TYPES } from "./utils/content";
-import { applyThemeVariables, createThemeObserver, getActiveTheme } from "./utils/theme";
+import { applyThemeVariables, createThemeObserver, getActiveTheme, getColorScheme } from "./utils/theme";
 import { resolveTokenValue } from "./utils/tokens";
+import { deepMerge } from "./utils/deep-merge";
 import { Activity, Check, Copy } from "lucide";
 import { renderLucideIcon, onExtraIconsReady } from "./utils/icons";
 import { renderIconNode } from "./utils/icon-node";
@@ -222,6 +225,7 @@ import {
   attachHeaderToContainer,
   COMPOSER_BAR_CLEAR_CHAT_ICON_SIZE,
   COMPOSER_BAR_CLOSE_ICON_SIZE,
+  resolvePanelGeometry,
 } from "./components/panel";
 import { buildPillComposer } from "./components/pill-composer-builder";
 import {
@@ -263,8 +267,9 @@ import {
   getBubbleClasses,
   CUSTOM_MESSAGE_ACTION_PREFIX,
 } from "./components/message-bubble";
-import { createReasoningBubble, reasoningExpansionState, updateReasoningBubbleUI } from "./components/reasoning-bubble";
-import { createToolBubble, toolExpansionState, updateToolBubbleUI } from "./components/tool-bubble";
+import { createReasoningBubble, updateReasoningBubbleUI } from "./components/reasoning-bubble";
+import { copyToolDetail } from "./components/tool-details";
+import { createToolBubble, updateToolBubbleUI } from "./components/tool-bubble";
 import {
   buildStructuredAnswers,
   ensureAskUserQuestionSheet,
@@ -324,8 +329,9 @@ import {
 } from "./utils/artifact-resize";
 import { loadFormsUi, getFormsUiSync } from "./forms-ui-loader";
 import { pluginRegistry } from "./plugins/registry";
-import { mergeWithDefaults, DEFAULT_FLOATING_LAUNCHER_WIDTH } from "./defaults";
+import { DEFAULT_HEADER_ICON_SIZE, mergeWithDefaults } from "./defaults";
 import { mergeConfigUpdate } from "./utils/config-merge";
+import { getPanelAliasProvenance } from "./utils/panel-config";
 import { createEventBus } from "./utils/events";
 import {
   createActionManager,
@@ -930,6 +936,18 @@ export const createAgentExperience = (
   }
 
   let config = mergeWithDefaults(initialConfig) as AgentWidgetConfig;
+  // Message ids are only unique within a widget session. Keep disclosure state
+  // beside the widget that renders it, not in component module scope.
+  const toolExpansionState = new Set<string>();
+  const reasoningExpansionState = new Set<string>();
+  const activityLifecycle = createActivityLifecycle((id, kind) => {
+    messageCache.delete(id);
+    const bubble = Array.from(messagesWrapper.querySelectorAll<HTMLElement>("[data-message-id]")).find(node => node.dataset.messageId === id);
+    if (!bubble) return;
+    if (kind === "tool") updateToolBubbleUI(id, bubble, toolExpansionState, config);
+    else updateReasoningBubbleUI(id, bubble, reasoningExpansionState);
+  });
+  const approvalDetailsExpansionState = new Map<string, boolean>();
   const applyTooltipTiming = (): void => {
     configureTooltipTiming({
       delayMs: config.tooltip?.delayMs ?? DEFAULT_TOOLTIP_DELAY_MS,
@@ -983,7 +1001,7 @@ export const createAgentExperience = (
     mod.initApprovalUi({
       webMcpToolTitle: getWebMcpToolDisplayTitle,
     });
-    const built = mod.createBuiltInApprovalPlugin();
+    const built = mod.createBuiltInApprovalPlugin(approvalDetailsExpansionState);
     builtInApprovalPlugin = built.plugin;
     teardownBuiltInApprovals = built.teardown;
   };
@@ -1361,7 +1379,7 @@ export const createAgentExperience = (
 
   // Get status indicator config
   const statusConfig = config.statusIndicator ?? {};
-  const _getStatusText = (status: AgentWidgetSessionStatus): string => {
+  const _getStatusText = (status: AgentWidgetSessionStatus, statusConfig = config.statusIndicator ?? {}): string => {
     if (status === "idle") return statusConfig.idleText ?? statusCopy.idle;
     if (status === "connecting") return statusConfig.connectingText ?? statusCopy.connecting;
     if (status === "connected") return statusConfig.connectedText ?? statusCopy.connected;
@@ -1373,6 +1391,10 @@ export const createAgentExperience = (
 
   /** Update statusText element, rendering a link for idle status when idleLink is configured. */
   function applyStatusToElement(el: HTMLElement, text: string, statusCfg: typeof statusConfig, status: string): void {
+    if (!isComposerBar() && (statusCfg.mode === "transient" || el.classList.contains("persona-mb-2"))) {
+      placeStatusIndicator(el, composerForm, statusCfg);
+      applyStatusIndicatorState(el, statusCfg, status);
+    }
     // A composer lock reason owns the status region until the lock clears.
     if (el.hasAttribute(COMPOSER_REASON_ATTR)) return;
     if (status === "idle" && statusCfg.idleLink) {
@@ -1544,6 +1566,16 @@ export const createAgentExperience = (
     }, 400);
   };
 
+  const isWelcomeFullscreen = () => {
+    const win = mount.ownerDocument.defaultView ?? window;
+    const mobile = (config.launcher?.mobileFullscreen ?? true) &&
+      win.innerWidth <= (config.launcher?.mobileBreakpoint ?? 640) &&
+      (launcherEnabled || isDockedMountMode(config));
+    return mobile || (config.launcher?.fullHeight === true &&
+      !config.launcher.sidebarMode && !isDockedMountMode(config));
+  };
+  const getWelcomeConfig = () => resolveWelcomeConfig(config, isWelcomeFullscreen());
+
   // Derived from the session's user messages on every welcome render; the
   // public `data-persona-conversation-state` contract mirrors it.
   let conversationState: "empty" | "active" = "empty";
@@ -1578,7 +1610,11 @@ export const createAgentExperience = (
   // updateScrollToBottomButtonOffset reads them, never writes.
   const syncComposerOverlayMetrics = () => {
     const placement = resolveComposerPlacement(config, isComposerBar());
-    const resolved = resolveWelcomeConfig(config);
+    const resolved = getWelcomeConfig();
+    mount.setAttribute("data-persona-welcome-fullscreen", String(isWelcomeFullscreen()));
+    mount.setAttribute("data-persona-welcome-layout", resolved.layout ?? "top");
+    mount.setAttribute("data-persona-welcome-layout-explicit", config.welcome?.layout ?? "");
+    mount.setAttribute("data-persona-welcome-anchor", resolved.anchor ?? "bottom");
     const footerHidden = footer.style.display === "none";
     const footerHeight = footerHidden ? 0 : footer.offsetHeight;
 
@@ -1587,10 +1623,25 @@ export const createAgentExperience = (
         ? parseAnchorFraction(resolved.anchorComposerTop) ??
           parseAnchorFraction(DEFAULT_ANCHOR_COMPOSER_TOP)!
         : null;
+    // The implicit fullscreen layout centers the complete greeting/composer
+    // group. Explicit anchoring retains its percentage-based geometry.
+    const centerGroup = fraction !== null && resolved.layout === "centered" &&
+      config.welcome?.anchor === undefined &&
+      config.welcome?.anchorComposerTop === undefined;
+    const measuredBodyStyle = centerGroup ? getComputedStyle(body) : null;
+    const previousOverlayHeight = parseFloat(mount.style.getPropertyValue("--persona-composer-overlay-height")) || 0;
+    const previousOverlayLift = parseFloat(mount.style.getPropertyValue("--persona-composer-lift")) || 0;
+    const groupGap = Math.max(0, (parseFloat(measuredBodyStyle?.paddingBottom ?? "") || 0) -
+      (placement === "overlay" ? previousOverlayHeight + previousOverlayLift : 0));
+    const columnTop = centerGroup ? body.getBoundingClientRect().top - container.getBoundingClientRect().top : 0;
+    const greetingHeight = !centerGroup || welcomeHost.hidden ? 0 :
+      (welcomeHost.querySelector<HTMLElement>("[data-persona-welcome-plugin]") ?? welcomeHost).offsetHeight;
     const lift =
       fraction === null || isComposerBar()
         ? 0
-        : computeComposerLift({
+        : centerGroup
+          ? Math.max(0, Math.round((container.clientHeight - columnTop - greetingHeight - groupGap - footerHeight) / 2))
+          : computeComposerLift({
             columnHeight: container.clientHeight,
             footerHeight,
             fraction,
@@ -2506,9 +2557,6 @@ export const createAgentExperience = (
       pruneComposerModes(state.activeModeIds, composerChipModes()).length > 0
     );
   };
-  // Bound once `voiceState` exists (further down this closure); the compact
-  // sweep can run before then only via a microtask, which is later still.
-  let isDictationActive: () => boolean = () => false;
   function syncComposerCompact(): void {
     const state = composerStore.getState();
     const wrapped = composerCompactLatch.observe(
@@ -2524,7 +2572,6 @@ export const createAgentExperience = (
         hasChips: hasComposerChips(),
         hasQuote: state.quote !== undefined,
         hasPendingSubmission: state.pendingSubmission !== undefined,
-        dictationActive: isDictationActive(),
       })
     );
   }
@@ -2667,6 +2714,16 @@ export const createAgentExperience = (
   // Render custom slots
   renderSlots();
 
+  messagesWrapper.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest<HTMLButtonElement>("button[data-persona-copy-tool-detail]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void copyToolDetail(button);
+  });
+
   // Add event delegation for reasoning and tool bubble expansion
   // This handles clicks even after idiomorph morphs the DOM
   const handleBubbleExpansion = (event: Event) => {
@@ -2684,7 +2741,17 @@ export const createAgentExperience = (
     const messageId = bubble.getAttribute('data-message-id');
     if (!messageId) return;
 
+    // Disclosure is reading intent, not new streamed content. Pause before the
+    // DOM grows so the resize observer cannot pull the opened details away.
+    markReaderEngaged();
+    pauseAutoScroll();
     const bubbleType = headerButton.getAttribute('data-bubble-type');
+    if (bubble.classList.contains("persona-activity-row")) {
+      activityLifecycle.manual(messageId);
+      const group = bubble.parentElement?.closest<HTMLElement>("[data-persona-tool-group]");
+      if (group?.dataset.messageId) activityLifecycle.manual(group.dataset.messageId);
+    }
+
 
     // Toggle expansion state
     if (bubbleType === 'reasoning') {
@@ -2693,22 +2760,22 @@ export const createAgentExperience = (
       } else {
         reasoningExpansionState.add(messageId);
       }
-      updateReasoningBubbleUI(messageId, bubble);
+      updateReasoningBubbleUI(messageId, bubble, reasoningExpansionState);
     } else if (bubbleType === 'tool') {
       if (toolExpansionState.has(messageId)) {
         toolExpansionState.delete(messageId);
       } else {
         toolExpansionState.add(messageId);
       }
-      updateToolBubbleUI(messageId, bubble, config);
+      updateToolBubbleUI(messageId, bubble, toolExpansionState, config);
     } else if (bubbleType === 'approval' && approvalUi) {
       // approvalUi is always set here: approval bubbles only exist after the
       // chunk was adopted. The guard keeps a stray click on a stub harmless.
       const approvalConfig = config.approval !== false ? config.approval : undefined;
       const defaultExpanded = (approvalConfig?.detailsDisplay ?? 'collapsed') === 'expanded';
-      const expanded = approvalUi.approvalDetailsExpansionState.get(messageId) ?? defaultExpanded;
-      approvalUi.approvalDetailsExpansionState.set(messageId, !expanded);
-      approvalUi.updateApprovalDetailsUI(messageId, bubble, config);
+      const expanded = approvalDetailsExpansionState.get(messageId) ?? defaultExpanded;
+      approvalDetailsExpansionState.set(messageId, !expanded);
+      approvalUi.updateApprovalDetailsUI(messageId, bubble, config, approvalDetailsExpansionState);
     }
     // Invalidate cached wrapper so next render rebuilds with current expansion state
     messageCache.delete(messageId);
@@ -2721,6 +2788,11 @@ export const createAgentExperience = (
       event.preventDefault();
       handleBubbleExpansion(event);
     }
+  });
+
+  messagesWrapper.addEventListener('click', (event) => {
+    // Assistive technologies activate buttons with a click rather than a pointer.
+    if (event.detail === 0 && (event.target as HTMLElement).closest('.persona-activity-row')) handleBubbleExpansion(event);
   });
 
   messagesWrapper.addEventListener('keydown', (event) => {
@@ -3984,7 +4056,7 @@ export const createAgentExperience = (
       if (mobileFullscreen && ownerWindow.innerWidth <= mobileBreakpoint) return;
       if (!shouldExpandLauncherForArtifacts(config, launcherEnabled)) return;
 
-      const base = config.launcher?.width ?? config.launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
+      const base = resolvePanelGeometry(config).width;
       const expanded =
         config.features?.artifacts?.layout?.expandedPanelWidth ??
         "min(720px, calc(100vw - 24px))";
@@ -4035,6 +4107,13 @@ export const createAgentExperience = (
   // Apply full-height and sidebar styles if enabled
   // This ensures the widget fills its container height with proper flex layout
   const applyFullHeightStyles = () => {
+    const fullScreenTranscript = isMobileFullscreenActive() ||
+      (isComposerBar() && config.launcher?.composerBar?.expandedSize === "fullscreen") ||
+      (config.launcher?.fullHeight === true && !config.launcher?.sidebarMode && !isDockedMountMode(config));
+    messagesWrapper.style.gap = fullScreenTranscript
+      ? "var(--persona-components-message-fullscreenGap, var(--persona-components-message-gap, 12px))"
+      : "var(--persona-components-message-gap, 12px)";
+    messagesWrapper.style.setProperty("--persona-transcript-gap", messagesWrapper.style.gap);
     // Composer-bar mode owns its own sizing/chrome. Geometry comes from
     // `applyComposerBarGeometry()` (per-state inline on the wrapper), the
     // pill carries its own chrome via `.persona-pill-composer`, and the
@@ -4083,7 +4162,14 @@ export const createAgentExperience = (
     const isInlineEmbed = config.launcher?.enabled === false;
     /** Detached appearance: inset card over a canvas instead of flush chrome. */
     const isDetached = config.launcher?.detachedPanel === true;
-    const panelPartial = config.theme?.components?.panel;
+    const lightPanelPartial = config.theme?.components?.panel;
+    const darkPanelPartial = config.darkTheme?.components?.panel;
+    const panelPartial: typeof lightPanelPartial = getColorScheme(config) === "dark"
+      ? deepMerge(
+          (lightPanelPartial ?? {}) as Record<string, unknown>,
+          (darkPanelPartial ?? {}) as Record<string, unknown>
+        ) as typeof lightPanelPartial
+      : lightPanelPartial;
     const activeTheme = getActiveTheme(config);
     const resolvePanelChrome = (raw: string | undefined, fallback: string): string => {
       if (raw == null || raw === "") return fallback;
@@ -4110,11 +4196,38 @@ export const createAgentExperience = (
     // Card chrome defaults (floating look): reused to restore detached chrome.
     // Defaults chain through the aliases themeToCssVariables emits so explicit
     // theme.components.panel overrides and these defaults never diverge.
-    const cardBorder = 'var(--persona-panel-border, 1px solid var(--persona-border))';
-    const cardShadow = 'var(--persona-panel-shadow, var(--persona-palette-shadows-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25)))';
-    const cardRadius = 'var(--persona-panel-radius, var(--persona-radius-xl, 0.75rem))';
+    const modeChrome = (
+      mode: "floating" | "inline" | "sidebar" | "docked" | "mobile",
+      field: "border" | "shadow" | "borderRadius",
+      fallback: string
+    ): string => `var(--persona-components-panel-modes-${mode}-${field}, ${fallback})`;
+    const configuredFloatingPanel = panelPartial?.modes?.floating;
+    const cardBorder = resolvePanelChrome(
+      configuredFloatingPanel?.border ?? panelPartial?.border,
+      modeChrome("floating", "border", 'var(--persona-panel-border, 1px solid var(--persona-border))')
+    );
+    const cardShadow = resolvePanelChrome(
+      configuredFloatingPanel?.shadow ?? panelPartial?.shadow,
+      modeChrome("floating", "shadow", 'var(--persona-panel-shadow, var(--persona-palette-shadows-xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25)))')
+    );
+    const cardRadius = resolvePanelChrome(
+      configuredFloatingPanel?.borderRadius ?? panelPartial?.borderRadius,
+      modeChrome("floating", "borderRadius", 'var(--persona-panel-radius, var(--persona-radius-xl, 0.75rem))')
+    );
     /** Detached restores card chrome except when a host layout goes fullscreen. */
     const detachedCard = isDetached && !shouldGoFullscreen && !dockedHostFullscreen;
+    const panelMode = shouldGoFullscreen || dockedHostFullscreen
+      ? "mobile"
+      : detachedCard
+        ? "floating"
+        : dockedMode
+          ? "docked"
+          : sidebarMode
+            ? "sidebar"
+            : isInlineEmbed
+              ? "inline"
+              : "floating";
+    const configuredModePanel = panelPartial?.modes?.[panelMode];
     // Stamp reflects rendered chrome: cleared when a fullscreen host layout
     // suppresses the card, so the attribute never lies to the detached CSS.
     if (detachedCard) {
@@ -4132,7 +4245,7 @@ export const createAgentExperience = (
       : shouldGoFullscreen
         ? 'none'
         : sidebarMode
-          ? (isLeftSidebar ? 'var(--persona-palette-shadows-sidebar-left, 2px 0 12px rgba(0, 0, 0, 0.08))' : 'var(--persona-palette-shadows-sidebar-right, -2px 0 12px rgba(0, 0, 0, 0.08))')
+          ? (isLeftSidebar ? '2px 0 12px rgba(0, 0, 0, 0.08)' : '-2px 0 12px rgba(0, 0, 0, 0.08)')
           // Flush inline embeds fill their container: no elevation by default
           // (detachedPanel or components.panel.shadow opts back in).
           : isInlineEmbed ? 'none' : cardShadow;
@@ -4146,9 +4259,18 @@ export const createAgentExperience = (
       : (sidebarMode || shouldGoFullscreen) ? '0' : cardRadius;
 
     // Apply theme overrides or defaults (components.panel.*)
-    const panelBorder = resolvePanelChrome(panelPartial?.border, defaultPanelBorder);
-    const panelShadow = resolvePanelChrome(panelPartial?.shadow, defaultPanelShadow);
-    const panelBorderRadius = resolvePanelChrome(panelPartial?.borderRadius, defaultPanelBorderRadius);
+    const panelBorder = resolvePanelChrome(
+      configuredModePanel?.border ?? panelPartial?.border,
+      modeChrome(panelMode, "border", defaultPanelBorder)
+    );
+    const panelShadow = resolvePanelChrome(
+      configuredModePanel?.shadow ?? panelPartial?.shadow,
+      modeChrome(panelMode, "shadow", defaultPanelShadow)
+    );
+    const panelBorderRadius = resolvePanelChrome(
+      configuredModePanel?.borderRadius ?? panelPartial?.borderRadius,
+      modeChrome(panelMode, "borderRadius", defaultPanelBorderRadius)
+    );
 
     // Split chrome: 'welded' folds the card border onto the outer panel so it
     // wraps both columns as one card (shadow/radius already on the panel);
@@ -4192,7 +4314,8 @@ export const createAgentExperience = (
     // Flush fills the container flush, so the outer panel squares off by default;
     // the pane keeps its own rounded radius. An explicit panel.borderRadius wins.
     const panelRadiusExplicit =
-      panelPartial?.borderRadius != null && panelPartial.borderRadius !== '';
+      (configuredModePanel?.borderRadius != null && configuredModePanel.borderRadius !== '') ||
+      (panelPartial?.borderRadius != null && panelPartial.borderRadius !== '');
     const appliedPanelRadius =
       chatFlush && !panelRadiusExplicit ? '0' : panelBorderRadius;
 
@@ -4317,15 +4440,14 @@ export const createAgentExperience = (
     }
 
     // Re-apply panel width/maxWidth from initial setup
-    const launcherWidth = config?.launcher?.width ?? config?.launcherWidth;
-    const width = launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
+    const geometry = resolvePanelGeometry(config);
     if (!sidebarMode && !dockedMode) {
       if (isInlineEmbed && fullHeight) {
         panel.style.width = "100%";
         panel.style.maxWidth = "100%";
       } else {
-        panel.style.width = width;
-        panel.style.maxWidth = width;
+        panel.style.width = geometry.width;
+        panel.style.maxWidth = geometry.maxWidth;
       }
     } else if (dockedMode) {
       const dockReveal = resolveDockConfig(config).reveal;
@@ -4375,7 +4497,9 @@ export const createAgentExperience = (
       weldedOuterRadius = null;
     }
 
-    if (dockedMode && !shouldGoFullscreen && !detachedCard && !detachedSplitActive && !weldedSplitActive && panelPartial?.border === undefined) {
+    const panelBorderExplicit =
+      configuredModePanel?.border != null || panelPartial?.border != null;
+    if (dockedMode && !shouldGoFullscreen && !detachedCard && !detachedSplitActive && !weldedSplitActive && !panelBorderExplicit) {
       container.style.border = 'none';
       const dockSide = resolveDockConfig(config).side;
       if (dockSide === 'right') {
@@ -4389,7 +4513,7 @@ export const createAgentExperience = (
     // mode resolves its border to none, so add the dock-facing hairline there so
     // the split still separates from the host page. Mirrors the flush block's
     // side choice (right dock => left edge faces the page).
-    if (dockedMode && !shouldGoFullscreen && weldedSplitActive && panelPartial?.border === undefined) {
+    if (dockedMode && !shouldGoFullscreen && weldedSplitActive && !panelBorderExplicit) {
       const dockSide = resolveDockConfig(config).side;
       if (dockSide === 'right') {
         panel.style.borderLeft = '1px solid var(--persona-border)';
@@ -4478,7 +4602,9 @@ export const createAgentExperience = (
 
     // Apply sidebar-specific styles
     if (sidebarMode) {
-      const sidebarWidth = config.launcher?.sidebarWidth ?? '420px';
+      const sidebarWidth = getPanelAliasProvenance(config).sidebarWidth
+        ? config.launcher?.sidebarWidth ?? "420px"
+        : resolveTokenValue(getActiveTheme(config), "components.panel.width") ?? "420px";
 
       // Wrapper - fixed position. Detached insets the card off the edges and
       // shrinks its height by the inset on both ends; flush hugs the edges.
@@ -4592,7 +4718,12 @@ export const createAgentExperience = (
   let warnedComposerBarPlacement = false;
   // mount.style.cssText is wiped by applyFullHeightStyles, so every
   // mount-level var re-stamps here, next to applyContentMaxWidthVar.
+  function syncTranscriptTopFade() {
+    if (config.layout?.topFade && body.scrollTop > 1) body.setAttribute("data-persona-top-fade", "true");
+    else body.removeAttribute("data-persona-top-fade");
+  }
   const applyComposerPlacement = () => {
+    syncTranscriptTopFade();
     const placement = resolveComposerPlacement(config, isComposerBar());
     if (
       isComposerBar() &&
@@ -4605,7 +4736,7 @@ export const createAgentExperience = (
         "[persona] composer.placement is ignored in composer-bar mount mode."
       );
     }
-    const welcome = resolveWelcomeConfig(config);
+    const welcome = getWelcomeConfig();
     mount.setAttribute("data-persona-composer-placement", placement);
     mount.setAttribute("data-persona-conversation-state", conversationState);
     // Root-level mirror of the welcome host's own anchor attribute, so the
@@ -4632,12 +4763,9 @@ export const createAgentExperience = (
     const mobileFullscreen = config.launcher?.mobileFullscreen ?? true;
     const mobileBreakpoint = config.launcher?.mobileBreakpoint ?? 640;
     if (mobileFullscreen && ownerWindow.innerWidth <= mobileBreakpoint) return;
-    const viewportHeight = ownerWindow.innerHeight;
-    const verticalMargin = 64; // leave space for launcher's offset
-    const heightOffset = config.launcher?.heightOffset ?? 0;
-    const available = Math.max(200, viewportHeight - verticalMargin);
-    const clamped = Math.min(640, available);
-    panel.style.height = `${Math.max(200, clamped - heightOffset)}px`;
+    const geometry = resolvePanelGeometry(config);
+    panel.style.height = geometry.height;
+    panel.style.maxHeight = geometry.maxHeight;
   };
   applyFullHeightStyles();
   // Apply theme variables after applyFullHeightStyles since it resets mount.style.cssText
@@ -4981,12 +5109,14 @@ export const createAgentExperience = (
       return;
     }
 
-    const starters = config.suggestions?.starters;
+    const v5 = config.future?.v5Defaults === true;
+    const fullscreen = isWelcomeFullscreen();
+    const starters = config.suggestions?.starters ?? (v5 ? {} : undefined);
     if (starters) {
       // The starter host lives inside the welcome surface, so a pinned
       // "welcome" placement has nowhere to render when that surface is hidden.
       const welcomeCardVisible = isWelcomeVisible(
-        resolveWelcomeConfig(config),
+        getWelcomeConfig(),
         current
       );
       const requestedPlacement = starters.placement ?? "auto";
@@ -5014,10 +5144,10 @@ export const createAgentExperience = (
         config.suggestionChipsConfig,
         {
           surface: "starter",
-          variant: starters.variant ?? "card",
+          variant: starters.variant ?? (v5 && !fullscreen ? "chip" : "card"),
           behavior: starters.behavior ?? "send",
           overflow: starters.overflow ?? "wrap",
-          maxItems: starters.maxItems ?? 4,
+          maxItems: starters.maxItems ?? (v5 && !fullscreen ? 3 : 4),
           config,
           plugins,
           submitPrompt: submitSuggestionPrompt,
@@ -5038,6 +5168,7 @@ export const createAgentExperience = (
         variant: "chip",
         behavior: "send",
         overflow: "wrap",
+        maxItems: 4,
         config,
         plugins,
         submitPrompt: submitSuggestionPrompt,
@@ -5220,7 +5351,6 @@ export const createAgentExperience = (
     lastUserMessageWasVoice: false,
     lastUserMessageId: null as string | null
   };
-  isDictationActive = () => voiceState.active;
   // First stamp: an untouched composer emits no store change, so the attribute
   // would otherwise not appear until the first keystroke.
   syncComposerCompact();
@@ -6163,7 +6293,9 @@ export const createAgentExperience = (
     // Only an explicit config value is stamped inline; the 85%/100% defaults
     // live in widget.css so `components.message.<role>.maxWidth` can win.
     const maxWidth =
-      roleLayout?.maxWidth ?? (width === "full" ? "100%" : undefined);
+      roleLayout?.maxWidth ?? (width === "full"
+        ? `var(--persona-message-${sizingRole}-max-width, 100%)`
+        : undefined);
 
     wrapper.classList.add("persona-message-row");
     wrapper.classList.remove(
@@ -6201,6 +6333,15 @@ export const createAgentExperience = (
     messages: AgentWidgetMessage[],
     transform: MessageTransform
   ) => {
+    const activityIds = new Set<string>();
+    for (const message of messages) {
+      const kind = message.variant === "tool" ? "tool" : message.variant === "reasoning" ? "reasoning" : null;
+      if (!kind || activityVariant(config, kind) !== "row") continue;
+      const display = kind === "tool" ? config.features?.toolCallDisplay : config.features?.reasoningDisplay;
+      if (display?.expandable === false) continue;
+      activityIds.add(message.id);
+      activityLifecycle.observe(message, kind, kind === "tool" ? toolExpansionState : reasoningExpansionState, display);
+    }
     // Build new content in a temporary container for morphing
     const tempContainer = document.createElement("div");
 
@@ -6613,7 +6754,7 @@ export const createAgentExperience = (
           };
           liveBubble = approvalPlugin.renderApproval({
             message,
-            defaultRenderer: () => approvalMod.createApprovalBubble(message, config),
+            defaultRenderer: () => approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState),
             config,
             approve: (options) => resolveDecision("approved", options),
             deny: (options) => resolveDecision("denied", options)
@@ -6629,7 +6770,7 @@ export const createAgentExperience = (
           const existing = container.querySelector<HTMLElement>(`#wrapper-${message.id}`);
           existing?.removeAttribute("data-preserve-runtime");
           lastApprovalBubbleFingerprint.delete(message.id);
-          bubble = approvalMod.createApprovalBubble(message, config);
+          bubble = approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState);
         } else {
           // A fresh live bubble to hydrate (needsRebuild), or fingerprint
           // unchanged so we reuse the preserved live wrapper (`bubble: null`).
@@ -6649,14 +6790,14 @@ export const createAgentExperience = (
           if (!showReasoning) return;
           bubble = matchingPlugin.renderReasoning({
             message,
-            defaultRenderer: () => createReasoningBubble(message, config),
+            defaultRenderer: () => createReasoningBubble(message, config, reasoningExpansionState),
             config
           });
         } else if (message.variant === "tool" && message.toolCall && matchingPlugin.renderToolCall) {
           if (!showToolCalls) return;
           bubble = matchingPlugin.renderToolCall({
             message,
-            defaultRenderer: () => createToolBubble(message, config),
+            defaultRenderer: () => createToolBubble(message, config, toolExpansionState),
             config
           });
         } else if (matchingPlugin.renderMessage) {
@@ -6824,15 +6965,15 @@ export const createAgentExperience = (
       if (!bubble) {
         if (message.variant === "reasoning" && message.reasoning) {
           if (!showReasoning) return;
-          bubble = createReasoningBubble(message, config);
+          bubble = createReasoningBubble(message, config, reasoningExpansionState);
         } else if (message.variant === "tool" && message.toolCall) {
           if (!showToolCalls) return;
-          bubble = createToolBubble(message, config);
+          bubble = createToolBubble(message, config, toolExpansionState);
         } else if (message.variant === "approval" && message.approval) {
           if (config.approval === false) return;
           const approvalMod = ensureApprovalUi();
           if (!approvalMod) return;
-          bubble = approvalMod.createApprovalBubble(message, config);
+          bubble = approvalMod.createApprovalBubble(message, config, approvalDetailsExpansionState);
         } else {
           // Check for custom message renderers in layout config
           const messageLayoutConfig = config.layout?.messages;
@@ -6950,6 +7091,32 @@ export const createAgentExperience = (
         );
         groupWrapper.setAttribute("data-persona-tool-group-row", "true");
 
+        if (config.features?.toolCallDisplay?.groupedMode === "collapsible") {
+          const id = `tool-group-${group[0].id}`;
+          const active = group.some(item => item.toolCall?.status !== "complete");
+          const synthetic: AgentWidgetMessage = { ...group[0], id, toolCall: {
+            id, name: `${group.length} tools`, status: active ? "running" : "complete",
+            chunks: group.flatMap(item => item.toolCall?.chunks ?? []),
+            success: !group.some(item => item.toolCall?.success === false),
+          } };
+          activityIds.add(id);
+          activityLifecycle.observe(synthetic, "tool", toolExpansionState, config.features.toolCallDisplay);
+          const label = `${active ? "Using" : "Used"} ${group.length} tools`;
+          const custom = config.toolCall?.renderGroupedSummary?.({ messages: group, toolCalls: group.map(item => item.toolCall!), defaultSummary: label, config });
+          const row = createActivityGroup(synthetic, config, toolExpansionState.has(id), custom ?? label);
+          row.bubble.classList.add("persona-tool-group");
+          row.body.dataset.personaToolGroupStack = "true";
+          wrappers[0].before(groupWrapper);
+          groupWrapper.appendChild(row.bubble);
+          wrappers.forEach((wrapper, index) => {
+            wrapper.style.setProperty("--persona-message-row-max-width", "100%");
+            wrapper.style.setProperty("--persona-activity-stagger", `${index * 40}ms`);
+            wrapper.classList.add("persona-activity-group-child");
+            row.body.appendChild(wrapper);
+          });
+          return;
+        }
+
         const groupContainer = document.createElement("div");
         groupContainer.className =
           "persona-tool-group persona-flex persona-w-full persona-flex-col persona-gap-2";
@@ -7005,6 +7172,8 @@ export const createAgentExperience = (
         });
       });
     }
+
+    activityLifecycle.prune(activityIds);
 
     // Remove cache entries for messages that no longer exist
     pruneCache(messageCache, activeMessageIds);
@@ -8018,6 +8187,7 @@ export const createAgentExperience = (
       statusText.setAttribute("aria-live", "polite");
       statusText.setAttribute(COMPOSER_REASON_ATTR, "");
       statusText.textContent = reason;
+      applyStatusIndicatorState(statusText, config.statusIndicator ?? {}, "idle");
       return;
     }
     if (!statusText.hasAttribute(COMPOSER_REASON_ATTR)) return;
@@ -8176,7 +8346,8 @@ export const createAgentExperience = (
       composerLiftAnimation = animateComposerLiftChange(
         footer,
         next === "active" ? previousLift : readLiftPx(),
-        next === "active" ? "drop" : "rise"
+        next === "active" ? "drop" : "rise",
+        getWelcomeConfig().layout === "centered" ? 320 : 260
       );
     }
     // The reservation shrinks by the lift in one frame, above the anchor.
@@ -8194,8 +8365,8 @@ export const createAgentExperience = (
   // so the pending stand-in the overlay body class would hide stays visible.
   let welcomePluginSuppressed = false;
   const updateWelcome = (messages?: AgentWidgetMessage[]) => {
-    const resolved = resolveWelcomeConfig(config);
-    const welcomeKey = `${resolved.variant}|${resolved.dismiss}|${resolved.anchor ?? "bottom"}|${resolved.align ?? ""}|${resolved.iconPlacement}|${resolved.kicker ?? ""}|${resolved.title}|${resolved.subtitle}`;
+    const resolved = getWelcomeConfig();
+    const welcomeKey = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.anchor ?? "bottom"}|${resolved.align ?? ""}|${resolved.iconPlacement}|${resolved.kicker ?? ""}|${resolved.title}|${resolved.subtitle}`;
     if (welcomeKey !== lastWelcomeKey || resolved.icon !== lastWelcomeIcon) {
       lastWelcomeKey = welcomeKey;
       lastWelcomeIcon = resolved.icon;
@@ -8348,8 +8519,8 @@ export const createAgentExperience = (
     // A plugin calling requestRender() from inside its own render would recurse.
     if (welcomeArbitrating) return;
     welcomeArbitrating = true;
-    const resolved = resolveWelcomeConfig(config);
-    lastWelcomeArbitrationKey = `${resolved.variant}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
+    const resolved = getWelcomeConfig();
+    lastWelcomeArbitrationKey = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
     lastWelcomeArbitrationIcon = resolved.icon;
     try {
       runWelcomeCleanups();
@@ -8398,8 +8569,8 @@ export const createAgentExperience = (
 
   /** Re-arbitrate only when the resolved welcome config actually changed. */
   const refreshWelcomePlugins = () => {
-    const resolved = resolveWelcomeConfig(config);
-    const key = `${resolved.variant}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
+    const resolved = getWelcomeConfig();
+    const key = `${resolved.variant}|${resolved.layout}|${resolved.dismiss}|${resolved.title}|${resolved.subtitle}|${resolved.message ?? ""}`;
     if (
       key === lastWelcomeArbitrationKey &&
       resolved.icon === lastWelcomeArbitrationIcon
@@ -8639,7 +8810,7 @@ export const createAgentExperience = (
       spans.forEach((span) => {
         const startedAt = Number(span.getAttribute("data-tool-elapsed"));
         if (!startedAt) return;
-        span.textContent = formatElapsedMs(now - startedAt);
+        span.textContent = span.closest(".persona-activity-row") ? activityDuration(now - startedAt) : formatElapsedMs(now - startedAt);
       });
     }, 100);
   };
@@ -11607,6 +11778,7 @@ export const createAgentExperience = (
     statusText.setAttribute("role", "status");
     statusText.setAttribute("aria-live", "polite");
     statusText.textContent = text;
+    applyStatusIndicatorState(statusText, config.statusIndicator ?? {}, "idle");
     if (composerNoticeTimer) clearTimeout(composerNoticeTimer);
     composerNoticeTimer = setTimeout(() => {
       composerNoticeTimer = null;
@@ -12429,7 +12601,7 @@ export const createAgentExperience = (
       }
       emitVoiceState(source);
       persistVoiceMetadata();
-      // Live dictation is a composer occupant; the store emits nothing for it.
+      // Reconcile content geometry without treating recording as extra content.
       syncComposerCompact();
       if (micButton) {
         // Store original styles (including icon info for restoration)
@@ -12846,8 +13018,10 @@ export const createAgentExperience = (
     footerResizeObserver.disconnect();
     footerResizeObserver.observe(footer);
     footerResizeObserver.observe(container);
+    footerResizeObserver.observe(welcomeHost);
   };
 
+  let lastWelcomeFullscreen = isWelcomeFullscreen();
   const recalcPanelHeight = () => {
     // Composer-bar mode lets CSS own all sizing: collapsed pill is auto-sized
     // by the footer; expanded fullscreen/modal are driven by CSS attribute
@@ -12909,10 +13083,9 @@ export const createAgentExperience = (
 
       // In sidebar/fullHeight mode, don't override the width - it's handled by applyFullHeightStyles
       if (!sidebarMode && !dockedMode) {
-        const launcherWidth = config?.launcher?.width ?? config?.launcherWidth;
-        const width = launcherWidth ?? DEFAULT_FLOATING_LAUNCHER_WIDTH;
-        panel.style.width = width;
-        panel.style.maxWidth = width;
+        const geometry = resolvePanelGeometry(config);
+        panel.style.width = geometry.width;
+        panel.style.maxWidth = geometry.maxWidth;
       }
       applyLauncherArtifactPanelWidth();
 
@@ -12923,6 +13096,12 @@ export const createAgentExperience = (
       // overwrites updateOpenState()'s display:none when docked+closed. Re-sync after every recalc.
       updateScrollToBottomButtonOffset();
       syncComposerOverlayMetrics();
+      const welcomeFullscreen = isWelcomeFullscreen();
+      if (welcomeFullscreen !== lastWelcomeFullscreen) {
+        lastWelcomeFullscreen = welcomeFullscreen;
+        updateWelcome();
+        renderSuggestions();
+      }
       updateOpenState();
 
       // Sync scroll lock and host stacking when viewport mode changes (e.g. orientation change)
@@ -12985,6 +13164,7 @@ export const createAgentExperience = (
   let lastBottomOffset = getScrollBottomOffset(body);
 
   const handleScroll = () => {
+    syncTranscriptTopFade();
     const scrollTop = body.scrollTop;
     // When content mutates (e.g. stream-animation plugins re-rendering text)
     // or the viewport grows (composer shrinking back), the maximum scroll
@@ -13203,6 +13383,8 @@ export const createAgentExperience = (
       }
       // Clear messages in session (this will trigger onMessagesChanged which re-renders)
       session.clearMessages();
+      if (config.layout?.topFade) body.scrollTop = 0;
+      body.removeAttribute("data-persona-top-fade");
       messageCache.clear();
       resumeAutoScroll();
 
@@ -13418,6 +13600,10 @@ export const createAgentExperience = (
       updateCopy();
       renderSuggestions();
       setComposerDisabled(session.isStreaming());
+      if (config.statusIndicator?.mode === "transient" && !isComposerBar()) {
+        const status = session.getStatus();
+        applyStatusToElement(statusText, _getStatusText(status), config.statusIndicator, status);
+      }
       // The rebuilt mic is stamped idle by its builder. A rebuild mid-recording
       // has to restore the live state, which also re-arms the level loop
       // against the new footer and wrapper.
@@ -13589,6 +13775,7 @@ export const createAgentExperience = (
 
   const controller: Controller = {
     update(nextConfig: AgentWidgetConfigPatch) {
+      const previousDefaultsVersion = config.future?.v5Defaults === true;
       const previousToolCallConfig = config.toolCall;
       const previousMessageActions = config.messageActions;
       const previousLayoutMessages = config.layout?.messages;
@@ -13862,7 +14049,8 @@ export const createAgentExperience = (
         || (config.features?.showToolCalls ?? true) !== (previousShowToolCalls ?? true)
         || JSON.stringify(config.features?.toolCallDisplay) !== JSON.stringify(previousToolCallDisplay)
         || JSON.stringify(config.features?.reasoningDisplay) !== JSON.stringify(previousReasoningDisplay);
-      const messagesConfigChanged = toolCallConfigChanged || messageActionsChanged || layoutMessagesChanged
+      const messagesConfigChanged = (config.future?.v5Defaults === true) !== previousDefaultsVersion
+        || toolCallConfigChanged || messageActionsChanged || layoutMessagesChanged
         || loadingIndicatorChanged || iterationDisplayChanged || featuresChanged;
       if (messagesConfigChanged && session) {
         configVersion++;
@@ -13899,7 +14087,7 @@ export const createAgentExperience = (
       // Hide icon if either headerIconHidden is true OR layout.header.showIcon is false
       const shouldHideIcon = headerIconHidden || layoutShowIcon === false;
       const headerIconName = launcher.headerIconName;
-      const headerIconSize = launcher.headerIconSize ?? "48px";
+      const headerIconSize = launcher.headerIconSize ?? DEFAULT_HEADER_ICON_SIZE;
 
       if (iconHolder) {
         const headerEl = header;
@@ -13940,6 +14128,8 @@ export const createAgentExperience = (
             const iconSize = parseFloat(headerIconSize) || 24;
             const iconSvg = renderLucideIcon(headerIconName, iconSize * 0.6, "currentColor", 1);
             if (iconSvg) {
+              iconSvg.style.width = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
+              iconSvg.style.height = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
               iconHolder.replaceChildren(iconSvg);
             } else {
               // Fallback to agentIconText if Lucide icon fails
@@ -14816,6 +15006,8 @@ export const createAgentExperience = (
       }
 
       syncComposerLayout();
+      // Placement may change through a live option or defaults-version switch.
+      applyComposerPlacement();
 
       // Modes can be added or removed live: drop selections whose mode is gone
       // before anything reads `activeModeIds`, and mount/unmount the mode chips.
@@ -14900,8 +15092,8 @@ export const createAgentExperience = (
 
       // Update status indicator visibility and text
       const statusIndicatorConfig = config.statusIndicator ?? {};
-      const isVisible = statusIndicatorConfig.visible ?? true;
-      statusText.style.display = isVisible ? "" : "none";
+      placeStatusIndicator(statusText, composerForm, statusIndicatorConfig);
+      applyStatusIndicatorState(statusText, statusIndicatorConfig, session?.getStatus() ?? "idle");
 
       // Update status text if status is currently set
       if (session) {
@@ -14911,6 +15103,8 @@ export const createAgentExperience = (
           if (s === "connecting") return statusIndicatorConfig.connectingText ?? statusCopy.connecting;
           if (s === "connected") return statusIndicatorConfig.connectedText ?? statusCopy.connected;
           if (s === "error") return statusIndicatorConfig.errorText ?? statusCopy.error;
+          if (s === "paused") return statusIndicatorConfig.pausedText ?? statusCopy.paused;
+          if (s === "resuming") return statusIndicatorConfig.resumingText ?? statusCopy.resuming;
           return statusCopy[s];
         };
         applyStatusToElement(statusText, getCurrentStatusText(currentStatus), statusIndicatorConfig, currentStatus);
@@ -14951,7 +15145,13 @@ export const createAgentExperience = (
     clearChat() {
       // Clear messages in session (this will trigger onMessagesChanged which re-renders)
       artifactsPaneUserHidden = false;
+      activityLifecycle.clear();
+      toolExpansionState.clear();
+      reasoningExpansionState.clear();
+      approvalDetailsExpansionState.clear();
       session.clearMessages();
+      if (config.layout?.topFade) body.scrollTop = 0;
+      body.removeAttribute("data-persona-top-fade");
       messageCache.clear();
       resumeAutoScroll();
 
@@ -15475,6 +15675,10 @@ export const createAgentExperience = (
         clearInterval(toolElapsedTimerId);
         toolElapsedTimerId = null;
       }
+      activityLifecycle.clear();
+      toolExpansionState.clear();
+      reasoningExpansionState.clear();
+      approvalDetailsExpansionState.clear();
       destroyCallbacks.forEach((cb) => cb());
       wrapper.remove();
       pillRoot?.remove();

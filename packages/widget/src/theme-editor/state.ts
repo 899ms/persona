@@ -1,9 +1,10 @@
 /** Headless state management for the theme editor (no DOM, no localStorage, no side effects) */
 
 import type { AgentWidgetConfig } from '../types';
-import type { PersonaTheme } from '../types/theme';
+import type { DeepPartial, PersonaTheme } from '../types/theme';
 import { createTheme } from '../utils/theme';
-import { DEFAULT_WIDGET_CONFIG } from '../defaults';
+import { resolveDefaults, resolveDefaultsVersion } from '../defaults';
+import { deepMerge } from '../utils/deep-merge';
 import type { ConfiguratorSnapshot, ConfigChangeListener } from './types';
 
 // ─── Dot-path utilities ─────────────────────────────────────────
@@ -65,18 +66,29 @@ export class ThemeEditorState {
   private history: ConfiguratorSnapshot[] = [];
   private historyIndex = -1;
   private suppressHistory = false;
+  private authoredConfig: Partial<AgentWidgetConfig> = {};
+  private authoredTheme: DeepPartial<PersonaTheme> = {};
+  private mergeDefaults = true;
+  private snapshotIntent = new WeakMap<ConfiguratorSnapshot, { config: Partial<AgentWidgetConfig>; theme: DeepPartial<PersonaTheme> }>();
 
   constructor(
-    initialTheme?: Partial<PersonaTheme>,
+    initialTheme?: DeepPartial<PersonaTheme>,
     initialConfig?: Partial<AgentWidgetConfig>,
     options?: { mergeDefaults?: boolean }
   ) {
     const mergeDefaults = options?.mergeDefaults ?? true;
+    this.mergeDefaults = mergeDefaults;
+    this.authoredConfig = { ...initialConfig };
+    this.authoredTheme = initialTheme ?? {};
+    const defaults = resolveDefaults(initialConfig);
     this.config = (mergeDefaults
-      ? { ...DEFAULT_WIDGET_CONFIG, ...initialConfig }
-      : (initialConfig ?? DEFAULT_WIDGET_CONFIG)
+      ? { ...defaults, ...initialConfig }
+      : (initialConfig ?? defaults)
     ) as AgentWidgetConfig;
-    this.theme = createTheme(initialTheme, { validate: false });
+    this.theme = createTheme(initialTheme, {
+      validate: false,
+      future: this.config.future,
+    });
     this.syncThemeIntoConfig();
     this.pushHistorySnapshot(this.exportSnapshot(), true);
   }
@@ -116,13 +128,15 @@ export class ThemeEditorState {
    * - everything else → writes into AgentWidgetConfig
    */
   set(path: string, value: unknown): void {
+    const previousVersion = resolveDefaultsVersion(this.config);
+    this.recordIntent(path, value);
     if (path.startsWith('theme.')) {
       const themePath = path.replace('theme.', '');
       this.theme = setByPath(this.theme, themePath, value) as PersonaTheme;
       this.syncThemeIntoConfig();
     } else if (path.startsWith('darkTheme.')) {
       const themePath = path.replace('darkTheme.', '');
-      const dark = this.config.darkTheme ?? createTheme();
+      const dark = this.config.darkTheme ?? createTheme(undefined, { future: this.config.future });
       this.config = {
         ...this.config,
         darkTheme: setByPath(dark, themePath, value) as AgentWidgetConfig['darkTheme'],
@@ -131,12 +145,15 @@ export class ThemeEditorState {
       this.config = setByPath(this.config, path, value) as AgentWidgetConfig;
     }
 
+    this.rebaseDefaults(previousVersion);
     this.recordHistory();
     this.notifyListeners();
   }
 
   /** Delete a dot-path and prune empty parents so sparse preferences inherit. */
   unset(path: string): void {
+    const previousVersion = resolveDefaultsVersion(this.config);
+    this.recordIntent(path, undefined, true);
     if (path.startsWith('theme.')) {
       const themePath = path.replace('theme.', '');
       this.theme = unsetByPath(this.theme, themePath) as PersonaTheme;
@@ -153,24 +170,27 @@ export class ThemeEditorState {
     } else {
       this.config = unsetByPath(this.config, path) as AgentWidgetConfig;
     }
+    this.rebaseDefaults(previousVersion);
     this.recordHistory();
     this.notifyListeners();
   }
 
   /** Batch-set multiple paths at once */
   setBatch(updates: Record<string, unknown>): void {
+    const previousVersion = resolveDefaultsVersion(this.config);
     let themeChanged = false;
     let darkThemeChanged = false;
     let configChanged = false;
 
     for (const [path, value] of Object.entries(updates)) {
+      this.recordIntent(path, value);
       if (path.startsWith('theme.')) {
         const themePath = path.replace('theme.', '');
         this.theme = setByPath(this.theme, themePath, value) as PersonaTheme;
         themeChanged = true;
       } else if (path.startsWith('darkTheme.')) {
         const themePath = path.replace('darkTheme.', '');
-        const dark = this.config.darkTheme ?? createTheme();
+        const dark = this.config.darkTheme ?? createTheme(undefined, { future: this.config.future });
         this.config = {
           ...this.config,
           darkTheme: setByPath(dark, themePath, value) as AgentWidgetConfig['darkTheme'],
@@ -185,6 +205,7 @@ export class ThemeEditorState {
     if (themeChanged) {
       this.syncThemeIntoConfig();
     }
+    this.rebaseDefaults(previousVersion);
     if (themeChanged || darkThemeChanged || configChanged) {
       this.recordHistory();
       this.notifyListeners();
@@ -193,6 +214,7 @@ export class ThemeEditorState {
 
   /** Replace the entire theme */
   setTheme(theme: PersonaTheme): void {
+    this.authoredTheme = theme;
     this.theme = theme;
     this.syncThemeIntoConfig();
     this.recordHistory();
@@ -201,6 +223,8 @@ export class ThemeEditorState {
 
   /** Replace the entire config (for preset loading) */
   setFullConfig(config: AgentWidgetConfig, theme?: PersonaTheme): void {
+    this.authoredConfig = { ...config };
+    if (theme) this.authoredTheme = theme;
     this.config = { ...config };
     if (theme) {
       this.theme = theme;
@@ -221,21 +245,27 @@ export class ThemeEditorState {
     if ('config' in parsed || 'theme' in parsed || parsed.version === 2) {
       const config = (parsed.config ?? this.config) as AgentWidgetConfig;
       const theme = createTheme(
-        (parsed.theme ?? this.theme) as Partial<PersonaTheme>,
-        { validate: false }
+        (parsed.theme ?? this.theme) as DeepPartial<PersonaTheme>,
+        { validate: false, future: config.future }
       );
       this.setFullConfig(config, theme);
       return;
     }
 
-    const theme = createTheme(parsed as Partial<PersonaTheme>, { validate: false });
+    const theme = createTheme(parsed as DeepPartial<PersonaTheme>, { validate: false, future: this.config.future });
     this.setTheme(theme);
   }
 
   /** Reset to defaults */
   resetToDefaults(): void {
-    this.config = { ...DEFAULT_WIDGET_CONFIG } as AgentWidgetConfig;
-    this.theme = createTheme();
+    const future = this.config.future;
+    this.authoredConfig = future ? { future } : {};
+    this.authoredTheme = {};
+    this.config = {
+      ...resolveDefaults({ future }),
+      ...(future ? { future } : {}),
+    } as AgentWidgetConfig;
+    this.theme = createTheme(undefined, { future: this.config.future });
     this.syncThemeIntoConfig();
     this.history = [];
     this.historyIndex = -1;
@@ -295,6 +325,27 @@ export class ThemeEditorState {
 
   // ─── Private ────────────────────────────────────────────────
 
+  private recordIntent(path: string, value: unknown, remove = false): void {
+    const write = (target: object, key: string) => remove || value === undefined
+      ? unsetByPath(target, key) : setByPath(target, key, value);
+    if (path.startsWith('theme.')) {
+      this.authoredTheme = write(this.authoredTheme, path.slice(6)) as DeepPartial<PersonaTheme>;
+    } else if (path === 'theme') {
+      this.authoredTheme = (value ?? {}) as DeepPartial<PersonaTheme>;
+    } else {
+      this.authoredConfig = write(this.authoredConfig, path) as Partial<AgentWidgetConfig>;
+    }
+  }
+
+  private rebaseDefaults(previousVersion: string): void {
+    if (previousVersion === resolveDefaultsVersion(this.config)) return;
+    this.config = (this.mergeDefaults
+      ? deepMerge(resolveDefaults(this.authoredConfig), this.authoredConfig)
+      : { ...this.authoredConfig }) as AgentWidgetConfig;
+    this.theme = createTheme(this.authoredTheme, { validate: false, future: this.config.future });
+    this.syncThemeIntoConfig();
+  }
+
   private syncThemeIntoConfig(): void {
     this.config = {
       ...this.config,
@@ -314,6 +365,7 @@ export class ThemeEditorState {
 
   private pushHistorySnapshot(snapshot: ConfiguratorSnapshot, replaceCurrent = false): void {
     if (this.suppressHistory) return;
+    this.snapshotIntent.set(snapshot, { config: this.authoredConfig, theme: this.authoredTheme });
 
     const serialized = JSON.stringify(snapshot);
     const currentSerialized =
@@ -326,7 +378,10 @@ export class ThemeEditorState {
       return;
     }
 
-    if (serialized === currentSerialized) return;
+    const currentIntent = this.historyIndex >= 0
+      ? this.snapshotIntent.get(this.history[this.historyIndex]) : undefined;
+    if (serialized === currentSerialized &&
+      JSON.stringify(this.snapshotIntent.get(snapshot)) === JSON.stringify(currentIntent)) return;
 
     this.history = this.history.slice(0, this.historyIndex + 1);
     this.history.push(snapshot);
@@ -335,8 +390,11 @@ export class ThemeEditorState {
 
   private restoreSnapshot(snapshot: ConfiguratorSnapshot): void {
     this.suppressHistory = true;
+    const intent = this.snapshotIntent.get(snapshot);
+    this.authoredConfig = intent?.config ?? snapshot.config as Partial<AgentWidgetConfig>;
+    this.authoredTheme = intent?.theme ?? snapshot.theme;
     this.config = snapshot.config as unknown as AgentWidgetConfig;
-    this.theme = createTheme(snapshot.theme, { validate: false });
+    this.theme = createTheme(snapshot.theme, { validate: false, future: this.config.future });
     this.syncThemeIntoConfig();
     this.suppressHistory = false;
     this.notifyListeners();

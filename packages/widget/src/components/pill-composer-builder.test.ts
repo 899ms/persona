@@ -22,6 +22,8 @@ describe("buildPillComposer (single-row pill composer)", () => {
     expect(elements.composerForm.classList.contains("persona-rounded-2xl")).toBe(false);
 
     expect(elements.composerForm.getAttribute("data-persona-composer-form")).toBe("");
+    // The shared focusRing token must not be suppressed by an inline outline.
+    expect(elements.composerForm.style.outline).toBe("");
     expect(elements.textarea.getAttribute("data-persona-composer-input")).toBe("");
     expect(elements.sendButton.getAttribute("data-persona-composer-submit")).toBe("");
   });

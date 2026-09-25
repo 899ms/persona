@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import { createWrapper } from "./panel";
+import { buildPanel, createWrapper, resolvePanelGeometry } from "./panel";
+import { mergeWithDefaults } from "../defaults";
 import type { AgentWidgetConfig } from "../types";
 
 describe("createWrapper: composer-bar mode", () => {
+  it.each([{ v5Defaults: false }, { v5Defaults: true }])(
+    "routes the transcript gap through the message token under v5Defaults=%s",
+    (future) => {
+      const { messagesWrapper } = buildPanel({ apiUrl: "/api", future } as AgentWidgetConfig);
+      expect(messagesWrapper.style.gap).toBe("var(--persona-components-message-gap, 12px)");
+    }
+  );
+
   it("marks the wrapper with composer-bar data-attrs and leaves geometry to updateOpenState", () => {
     const config: AgentWidgetConfig = {
       apiUrl: "/api",
@@ -57,5 +66,47 @@ describe("createWrapper: composer-bar mode", () => {
   it("does not apply composer-bar markers in floating mode", () => {
     const { wrapper } = createWrapper({ apiUrl: "/api" });
     expect(wrapper.hasAttribute("data-persona-composer-bar")).toBe(false);
+  });
+});
+
+describe.each([false, true])("resolvePanelGeometry (v5=%s)", (v5Defaults) => {
+  it("uses panel token variables when no legacy width alias was supplied", () => {
+    const config = mergeWithDefaults({ apiUrl: "/api", future: { v5Defaults } }) as AgentWidgetConfig;
+    expect(resolvePanelGeometry(config)).toMatchObject({
+      width: "var(--persona-components-panel-width)",
+      maxWidth: "var(--persona-components-panel-maxWidth)",
+      height: "max(200px, var(--persona-components-panel-height))",
+      maxHeight: "var(--persona-components-panel-maxHeight)",
+    });
+  });
+
+  it("keeps an explicit launcher width ahead of panel tokens", () => {
+    const config = mergeWithDefaults({
+      apiUrl: "/api",
+      future: { v5Defaults },
+      launcher: { width: "600px" },
+      theme: { components: { panel: { width: "320px", maxWidth: "320px" } } },
+    }) as AgentWidgetConfig;
+    expect(resolvePanelGeometry(config)).toMatchObject({ width: "600px", maxWidth: "600px" });
+  });
+
+  it("applies heightOffset regardless of which width source wins", () => {
+    const config = mergeWithDefaults({
+      apiUrl: "/api",
+      future: { v5Defaults },
+      launcher: { width: "600px", heightOffset: 24 },
+    }) as AgentWidgetConfig;
+    expect(resolvePanelGeometry(config).height).toBe(
+      "max(200px, calc(var(--persona-components-panel-height) - 24px))"
+    );
+  });
+});
+
+describe.each([false, true])('inline width (V5=%s)', v5Defaults => {
+  it('fills the host with inherited defaults and honors explicit widths', () => {
+    const config = { future: { v5Defaults }, launcher: { enabled: false } };
+    expect(createWrapper(mergeWithDefaults(config)).wrapper.style.width).toBe('100%');
+    expect(createWrapper(mergeWithDefaults({ ...config, launcher: { enabled: false, width: '600px' } })).wrapper.style.width).toBe('600px');
+    expect(createWrapper(mergeWithDefaults({ ...config, theme: { components: { panel: { width: '700px' } } } })).wrapper.style.width).toBe('var(--persona-components-panel-width)');
   });
 });

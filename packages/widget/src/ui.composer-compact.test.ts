@@ -7,6 +7,8 @@ import { createAgentExperience } from "./ui";
 const mounts: HTMLElement[] = [];
 const controllers: ReturnType<typeof createAgentExperience>[] = [];
 
+let selectedDefaults = false;
+
 const makeController = (config: Record<string, unknown> = {}) => {
   const mount = document.createElement("div");
   document.body.appendChild(mount);
@@ -15,6 +17,7 @@ const makeController = (config: Record<string, unknown> = {}) => {
     apiUrl: "https://api.example.com/chat",
     launcher: { enabled: false },
     persistState: false,
+    future: { v5Defaults: selectedDefaults },
     suggestionChips: [],
     ...config,
   } as unknown as Parameters<typeof createAgentExperience>[1]);
@@ -68,12 +71,17 @@ const capturingFetch = () =>
       }),
     }) as unknown as Response;
 
-describe("composer compact state", () => {
+describe.each([false, true])("composer compact state (v5Defaults: %s)", (v5Defaults) => {
   beforeEach(() => {
+    selectedDefaults = v5Defaults;
     window.scrollTo = vi.fn();
   });
 
   afterEach(() => {
+    if (v5Defaults) for (const mount of mounts) {
+      expect(mount.style.getPropertyValue("--persona-input-radius")).toBe("9999px");
+      expect(mount.style.getPropertyValue("--persona-composer-control-size")).toBe("32px");
+    }
     controllers.splice(0).forEach((controller) => {
       try {
         controller.destroy();
@@ -149,7 +157,7 @@ describe("composer compact state", () => {
     expect(isCompact(mount)).toBe(true);
   });
 
-  it("expands while dictation is active", async () => {
+  it("keeps recording compact until its text needs more space", async () => {
     class FakeRecognition {
       continuous = false;
       interimResults = false;
@@ -163,12 +171,26 @@ describe("composer compact state", () => {
     vi.stubGlobal("SpeechRecognition", FakeRecognition);
     const { mount, controller } = makeController({
       voiceRecognition: { enabled: true },
+      composer: { layout: "single-row" },
     });
     await flush();
     expect(isCompact(mount)).toBe(true);
     controller.startVoiceRecognition();
     await type(mount, "");
+    expect(isCompact(mount)).toBe(true);
+    const mic = mount.querySelector<HTMLElement>('[data-persona-composer-mic]')!;
+    expect(mic.dataset.state).toBe('recording');
+    expect(mic.getAttribute('aria-label')).toBe('Stop voice recognition');
+    await type(mount, "Short dictated text");
+    expect(isCompact(mount)).toBe(true);
+    await type(mount, "First line\nSecond line");
     expect(isCompact(mount)).toBe(false);
+    expect(mic.dataset.state).toBe('recording');
+    controller.stopVoiceRecognition();
+    expect(isCompact(mount)).toBe(false);
+    expect(mic.dataset.state).toBe('idle');
+    await type(mount, "");
+    expect(isCompact(mount)).toBe(true);
     vi.unstubAllGlobals();
   });
 });

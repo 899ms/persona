@@ -189,6 +189,17 @@ describe("suggest_replies chips UI", () => {
     scrolling.controller.destroy();
   });
 
+  it("caps legacy suggestion chips at the same four-item starter default", () => {
+    const { mount, controller } = makeController({
+      suggestionChips: ["One", "Two", "Three", "Four", "Five"],
+    });
+
+    expect(mount.querySelectorAll("button.persona-suggestion")).toHaveLength(4);
+    expect(chipButtons(mount, "Five")).toHaveLength(0);
+
+    controller.destroy();
+  });
+
   it("wraps follow-ups by default", () => {
     // 2-4 compact chips always fit at widget width; a scroll strip hides
     // most of the set behind a fade, so scroll is opt-in for large sets.

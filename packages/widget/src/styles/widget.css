@@ -582,6 +582,7 @@
     --persona-components-suggestion-chip-foreground,
     var(--persona-text)
   );
+  font-weight: var(--persona-components-suggestion-chip-fontWeight, 500);
   font-size: var(--persona-components-suggestion-chip-fontSize, 0.8125rem);
   line-height: var(--persona-components-suggestion-chip-lineHeight, 1.25);
 }
@@ -606,6 +607,7 @@
     var(--persona-text)
   );
   box-shadow: var(--persona-components-suggestion-card-shadow, none);
+  font-weight: var(--persona-components-suggestion-card-fontWeight, 500);
   font-size: var(--persona-components-suggestion-card-fontSize, 0.875rem);
   line-height: var(--persona-components-suggestion-card-lineHeight, 1.35);
 }
@@ -630,6 +632,7 @@
     --persona-components-suggestion-list-foreground,
     var(--persona-text)
   );
+  font-weight: var(--persona-components-suggestion-list-fontWeight, 500);
   font-size: var(--persona-components-suggestion-list-fontSize, 0.875rem);
   line-height: var(--persona-components-suggestion-list-lineHeight, 1.35);
 }
@@ -2812,11 +2815,6 @@
   }
 }
 
-/* Prevent form container from showing focus styles */
-.persona-widget-composer:focus-within {
-  outline: none !important;
-}
-
 .persona-widget-composer:focus-within textarea {
   border: none !important;
   outline: none !important;
@@ -2867,6 +2865,25 @@
   /* `components.composer.borderColor`; the fallback matches the
      `persona-border-persona-border` utility the form carries. */
   border-color: var(--persona-composer-border-color, var(--persona-border, #e5e7eb));
+}
+
+/* Focus belongs to the whole form, including its action controls. An outline
+   adds no layout size and preserves custom resting shadows. Unset V4 tokens
+   retain the resting border and no ring. Shared by compact and expanded forms. */
+[data-persona-root] .persona-widget-composer:focus-within {
+  outline: var(--persona-components-composer-focusRing, none);
+  outline-offset: 1px;
+}
+
+[data-persona-root] .persona-widget-composer:not(.persona-pill-composer):focus-within {
+  border-color: var(
+    --persona-components-composer-focusBorderColor,
+    var(--persona-composer-border-color, var(--persona-border, #e5e7eb))
+  );
+}
+
+[data-persona-root] .persona-pill-composer:focus-within {
+  border-color: var(--persona-components-composer-focusBorderColor, var(--persona-border, #e5e7eb));
 }
 
 /* Composer type scale, themeable via `components.composer.fontSize` /
@@ -2927,6 +2944,15 @@
    Positioning lives here, never inline: a plugin-owned footer is exempt from
    the cssText reset in applyFullHeightStyles, so an inline design would
    diverge for plugin composers. */
+
+/* Optional composer chrome tokens retain the legacy fallback in V4. */
+.persona-widget-footer.persona-border-t-persona-divider {
+  border-top: var(--persona-components-composer-footerBorder, 1px solid var(--persona-divider));
+}
+[data-persona-composer-submit].persona-composer-control {
+  border-radius: var(--persona-components-composer-sendButtonRadius, var(--persona-button-radius));
+}
+
 [data-persona-root][data-persona-composer-placement="overlay"] .persona-widget-footer {
   position: absolute;
   inset: auto 0 var(--persona-composer-lift, 0px) 0;
@@ -3085,6 +3111,25 @@
   /* UA button padding would eat into the box and crush the glyph; a configured
      paddingX/Y is inline and still wins. */
   padding: 0;
+}
+
+/* Inline per-control styles take precedence over these theme defaults. */
+.persona-header-control.persona-rounded-full {
+  border-radius: var(--persona-components-header-controlBorderRadius, 9999px);
+}
+.persona-header-control:hover,
+.persona-header-control:focus-visible {
+  --persona-header-control-state-fg: var(--persona-components-header-controlHoverForeground);
+}
+.persona-header-control.hover\:persona-bg-gray-100:hover {
+  background-color: var(--persona-components-header-controlHoverBackground);
+}
+.persona-header-control:focus-visible {
+  background-color: var(--persona-components-header-controlHoverBackground);
+  outline: var(--persona-components-header-controlFocusOutline, revert);
+}
+[data-persona-defaults="v5"] .persona-header-control:focus-visible {
+  outline-offset: 2px;
 }
 
 .persona-header-control--glyph > svg {
@@ -3340,6 +3385,7 @@
 .persona-message-assistant-bubble {
   border-radius: var(--persona-message-assistant-radius, var(--persona-radius-lg, 0.5rem));
   border-color: var(--persona-message-assistant-border, var(--persona-border, #e5e7eb));
+  border-width: var(--persona-message-assistant-border-width, 1px);
 }
 
 [data-persona-root] .persona-message-assistant-bubble.persona-shadow-sm {
@@ -3347,11 +3393,11 @@
 }
 
 [data-persona-root] .persona-message-user-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-message-user-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-message-user-shadow);
 }
 
 [data-persona-root] .persona-tool-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-tool-bubble-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-tool-bubble-shadow);
 }
 
 /* ==============================
@@ -3435,7 +3481,7 @@
 }
 
 [data-persona-root] .persona-reasoning-bubble.persona-shadow-sm {
-  box-shadow: var(--persona-reasoning-bubble-shadow, 0 5px 15px rgba(15, 23, 42, 0.08));
+  box-shadow: var(--persona-reasoning-bubble-shadow);
 }
 
 /* Artifact markdown (no .persona-message-bubble wrapper) */
@@ -4363,24 +4409,24 @@
 /* Content areas: themed border and background for tool/reasoning bubbles */
 .persona-tool-bubble .persona-border-t,
 .persona-reasoning-bubble .persona-border-t {
-  border-top-color: var(--cw-border, #e5e7eb);
-  background-color: var(--cw-container, #f9fafb);
+  border-top-color: var(--persona-cw-border, var(--cw-border, #e5e7eb));
+  background-color: var(--persona-cw-container, var(--cw-container, #f9fafb));
 }
 
 /* Tool bubble code blocks: themed surface and border */
 .persona-tool-bubble pre {
-  background-color: var(--cw-surface, #ffffff);
-  border-color: var(--cw-border, #f1f5f9);
+  background-color: var(--persona-cw-surface, var(--cw-surface, #ffffff));
+  border-color: var(--persona-cw-border, var(--cw-border, #f1f5f9));
 }
 
 /* Collapsible header hover (tool + reasoning) */
-.persona-tool-bubble button[data-expand-header],
-.persona-reasoning-bubble button[data-expand-header] {
+.persona-tool-bubble button[data-expand-header]:not(.persona-activity-header),
+.persona-reasoning-bubble button[data-expand-header]:not(.persona-activity-header) {
   transition: background-color 0.15s ease;
 }
-.persona-tool-bubble button[data-expand-header]:hover,
-.persona-reasoning-bubble button[data-expand-header]:hover {
-  background-color: var(--cw-container, #f8fafc);
+.persona-tool-bubble button[data-expand-header]:not(.persona-activity-header):hover,
+.persona-reasoning-bubble button[data-expand-header]:not(.persona-activity-header):hover {
+  background-color: var(--persona-cw-container, var(--cw-container, #f8fafc));
 }
 
 /* Collapsed live preview blocks: match expanded content's 1px border-top with transparent border */
@@ -4395,7 +4441,7 @@
   --_dot-size: 6px;
   --_branch-len: 0.75rem;
   --_branch-y: 1.5rem;
-  --_rail-color: var(--cw-border, #d1d5db);
+  --_rail-color: var(--persona-cw-border, var(--cw-border, #d1d5db));
   gap: 0;
 }
 
@@ -4431,7 +4477,7 @@
   height: var(--_dot-size);
   border-radius: 999px;
   border: var(--_rail-w) solid var(--_rail-color);
-  background: var(--cw-surface, #fff);
+  background: var(--persona-cw-surface, var(--cw-surface, #fff));
   transform: translate(-50%, -50%);
 }
 
@@ -4502,7 +4548,7 @@
   height: var(--_dot-size);
   border-radius: 999px;
   border: var(--_rail-w) solid var(--_rail-color);
-  background: var(--cw-surface, #fff);
+  background: var(--persona-cw-surface, var(--cw-surface, #fff));
   transform: translate(-50%, -50%);
   z-index: 1;
 }
@@ -4513,8 +4559,8 @@
 
 /* Approval bubble defaults (overridden by inline styles when config exists) */
 .persona-approval-bubble {
-  background-color: var(--cw-surface, #ffffff);
-  border-color: var(--cw-border, #e5e7eb);
+  background-color: var(--persona-cw-surface, var(--cw-surface, #ffffff));
+  border-color: var(--persona-cw-border, var(--cw-border, #e5e7eb));
 }
 
 /* Approval button hover/active states */
@@ -6798,7 +6844,9 @@
   border-radius: 9999px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   color: var(--persona-primary, #111827);
-  font: inherit;
+  font-family: inherit;
+  font-weight: 400;
+  font-style: normal;
   font-size: 13px;
   line-height: 1.4;
   cursor: pointer;
@@ -7181,3 +7229,227 @@
     opacity: 0.6;
   }
 }
+
+/* Both the critical and full launchers use these variant and placement rules. */
+[data-persona-launcher-variant="circle"] {
+  width: var(--persona-components-launcher-size, 48px);
+  height: var(--persona-components-launcher-size, 48px);
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  color: var(--persona-launcher-fg, var(--persona-text-inverse));
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"] {
+  color: inherit;
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"].persona-bg-persona-primary {
+  background: transparent;
+}
+[data-persona-launcher-variant="circle"] [data-role="launcher-icon"] svg {
+  width: var(--persona-components-launcher-iconSize, 24px);
+  height: var(--persona-components-launcher-iconSize, 24px);
+  stroke: currentColor;
+}
+.persona-launcher-surface[data-teaser].persona-bottom-6,
+.persona-launcher-surface > button.persona-bottom-6 {
+  bottom: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-top-6,
+.persona-launcher-surface > button.persona-top-6 {
+  top: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-right-6,
+.persona-launcher-surface > button.persona-right-6 {
+  right: var(--persona-components-launcher-offset, 1.5rem);
+}
+.persona-launcher-surface[data-teaser].persona-left-6,
+.persona-launcher-surface > button.persona-left-6 {
+  left: var(--persona-components-launcher-offset, 1.5rem);
+}
+
+/* Center the complete empty greeting group without trapping overflow above
+   the scroll origin. Auto margins collapse naturally when content is tall. */
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-conversation-state="empty"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: auto;
+  flex-shrink: 0;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-anchor="center"][data-persona-conversation-state="empty"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: auto 0;
+}
+[data-persona-root][data-persona-welcome-layout="centered"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-anchor="center"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  justify-content: safe flex-end;
+}
+[data-persona-root][data-persona-welcome-layout="centered"][data-persona-welcome-fullscreen="true"]
+  .persona-suggestions[data-variant="card"][data-persona-suggestion-surface="starter"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* An explicit top layout overrides the legacy hero's auto margins. Unspecified
+   V4 heroes retain their original centering in empty and active transcripts. */
+[data-persona-root][data-persona-welcome-layout-explicit="top"]
+  .persona-welcome:not([data-persona-welcome-overlay]) {
+  margin-block: 0;
+}
+[data-persona-root][data-persona-welcome-layout-explicit="top"]
+  .persona-welcome[data-persona-welcome-overlay] {
+  justify-content: flex-start;
+}
+
+/* Activity rows share geometry but retain the legacy kind-specific token aliases. */
+.persona-activity-row {
+  width: 100%; color: var(--persona-muted); background: transparent;
+  --persona-activity-height: var(--persona-components-activity-rowHeight, 32px);
+  --persona-activity-label-size: var(--persona-components-activity-labelSize, 13px);
+  --persona-activity-icon-size: var(--persona-components-activity-iconSize, 16px);
+  --persona-activity-indent: var(--persona-components-activity-indent, 24px);
+  --persona-activity-body-bg: var(--persona-components-activity-bodySurface, transparent);
+}
+.persona-tool-bubble.persona-activity-row {
+  --persona-activity-height: var(--persona-components-toolBubble-rowHeight, var(--persona-components-activity-rowHeight, 32px));
+  --persona-activity-label-size: var(--persona-components-toolBubble-labelSize, var(--persona-components-activity-labelSize, 13px));
+  --persona-activity-icon-size: var(--persona-components-toolBubble-iconSize, var(--persona-components-activity-iconSize, 16px));
+  --persona-activity-indent: var(--persona-components-toolBubble-indent, var(--persona-components-activity-indent, 24px));
+  --persona-activity-body-bg: var(--persona-components-toolBubble-bodySurface, var(--persona-components-activity-bodySurface, transparent));
+}
+.persona-reasoning-bubble.persona-activity-row {
+  box-shadow: var(--persona-reasoning-bubble-shadow, none);
+  --persona-activity-height: var(--persona-components-reasoningBubble-rowHeight, var(--persona-components-activity-rowHeight, 32px));
+  --persona-activity-label-size: var(--persona-components-reasoningBubble-labelSize, var(--persona-components-activity-labelSize, 13px));
+  --persona-activity-icon-size: var(--persona-components-reasoningBubble-iconSize, var(--persona-components-activity-iconSize, 16px));
+  --persona-activity-indent: var(--persona-components-reasoningBubble-indent, var(--persona-components-activity-indent, 24px));
+  --persona-activity-body-bg: var(--persona-components-reasoningBubble-bodySurface, var(--persona-components-activity-bodySurface, transparent));
+}
+.persona-activity-header { display:flex; align-items:center; gap:8px; min-height:var(--persona-activity-height); padding:4px 0; background:transparent; border:0; color:inherit; font:inherit; text-align:left; max-width:100%; cursor:pointer; }
+/* Activity rows use foreground feedback; card hover surfaces stay on cards. */
+.persona-activity-header[data-expand-header] { transition:color 0.15s ease; }
+.persona-activity-header[data-expand-header]:hover,
+.persona-activity-header[data-expand-header]:focus-visible { color:var(--persona-text); }
+.persona-activity-header:focus-visible { outline:2px solid var(--persona-primary); outline-offset:3px; border-radius:4px; }
+.persona-activity-header:not([data-expand-header]) { cursor:default; }
+.persona-activity-label { min-width:0; }
+.persona-activity-label, .persona-activity-label > span { font-size:var(--persona-activity-label-size); color:inherit; }
+.persona-activity-icon { display:inline-flex; flex:none; width:var(--persona-activity-icon-size); height:var(--persona-activity-icon-size); }
+.persona-activity-icon svg { width:100%; height:100%; }
+.persona-activity-chevron { margin-left:0; flex:none; }
+.persona-activity-duration { font-size:12px; white-space:nowrap; }
+.persona-activity-row > .persona-activity-body { margin-left:var(--persona-activity-indent); padding:var(--persona-components-activity-bodyPadding, 8px 0); border:0; background:var(--persona-activity-body-bg); }
+.persona-activity-row[data-persona-tool-group] > .persona-activity-body {
+  margin-left:var(--persona-components-activity-groupIndent, var(--persona-activity-indent));
+  padding:var(--persona-components-activity-groupPadding, var(--persona-components-activity-bodyPadding, 8px 0));
+}
+.persona-activity-row > .persona-activity-body.persona-space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top:var(--persona-components-activity-sectionGap, 12px);
+}
+.persona-activity-row > [data-persona-tool-group-stack] > .persona-activity-group-child + .persona-activity-group-child {
+  margin-top:var(--persona-components-activity-groupGap, 0px);
+}
+.persona-activity-row[data-activity-state="done"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-success, #16a34a); }
+.persona-activity-row[data-activity-state="error"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-danger, #dc2626); }
+.persona-activity-row[data-activity-state="denied"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-warning-strong, #b45309); }
+.persona-activity-row[data-activity-state="awaiting-approval"] > .persona-activity-header > .persona-activity-icon { color:var(--persona-warning, #d97706); }
+.persona-activity-row[data-activity-state="running"] > .persona-activity-header > .persona-activity-icon { animation:persona-activity-spin 1s linear infinite; }
+@keyframes persona-activity-spin { to { transform:rotate(360deg); } }
+@keyframes persona-activity-enter { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+.persona-activity-group-child { animation:persona-activity-enter 160ms ease both; animation-delay:var(--persona-activity-stagger, 0ms); }
+@media (prefers-reduced-motion: reduce) {
+  .persona-activity-row[data-activity-state="running"] > .persona-activity-header > .persona-activity-icon, .persona-activity-group-child { animation:none; }
+}
+.persona-activity-row[data-activity-group-shimmer][data-activity-state="running"] > .persona-activity-header > .persona-activity-label {
+  background:linear-gradient(100deg, var(--persona-muted) 25%, var(--persona-text) 50%, var(--persona-muted) 75%);
+  background-size:200% 100%; background-clip:text; -webkit-background-clip:text; color:transparent;
+  animation:persona-activity-shimmer 2s linear infinite;
+}
+@keyframes persona-activity-shimmer { to { background-position:-200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .persona-activity-row[data-activity-group-shimmer] > .persona-activity-header > .persona-activity-label { animation:none; background:none; color:var(--persona-muted); }
+}
+
+/* Keep the top edge soft only while earlier transcript content is out of view. */
+.persona-widget-container:has(> .persona-widget-body[data-persona-top-fade="true"]) {
+  background-color: var(--persona-container);
+}
+.persona-widget-body[data-persona-top-fade="true"] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--persona-components-message-topFadeHeight, 18px));
+}
+
+/* Adjust only adjacent transcript activity, preserving normal message gaps. */
+.persona-widget-messages > [data-message-role]:has(.persona-activity-row) + [data-message-role]:has(.persona-activity-row) {
+  margin-top:calc(var(--persona-components-activity-transcriptGap, var(--persona-transcript-gap)) - var(--persona-transcript-gap));
+}
+.persona-widget-messages > [data-message-role]:has(.persona-activity-row) + [data-message-role="assistant"]:not(:has(.persona-activity-row)) {
+  margin-top:calc(var(--persona-components-activity-responseGap, var(--persona-transcript-gap)) - var(--persona-transcript-gap));
+}
+
+.persona-reasoning-bubble.persona-activity-row > .persona-activity-body > .persona-whitespace-pre-wrap {
+  font-size:var(--persona-components-activity-bodySize, 12px);
+  line-height:var(--persona-components-activity-bodyLineHeight, inherit);
+  font-weight:var(--persona-components-activity-bodyFontWeight, inherit);
+}
+
+/* V5 tool details: a single request/response surface, plain text or structured data. */
+.persona-tool-detail {
+  position: relative;
+  padding: 10px 12px;
+  border: 0 solid transparent;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--persona-muted) 5%, transparent);
+}
+.persona-tool-detail-label {
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--persona-muted);
+  padding-right: 32px;
+  margin-bottom: 5px;
+}
+.persona-tool-detail .persona-tool-detail-value {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--persona-text);
+  font-family: inherit;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+}
+.persona-tool-detail .persona-tool-detail-code { font-family: var(--persona-font-mono, monospace); font-size: 12px; }
+.persona-tool-detail-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--persona-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+.persona-tool-detail:hover .persona-tool-detail-copy,
+.persona-tool-detail:focus-within .persona-tool-detail-copy,
+.persona-tool-detail-copy[data-copied="true"] { opacity: 1; }
+.persona-tool-detail-copy:hover { color: var(--persona-text); background: color-mix(in srgb, var(--persona-muted) 12%, transparent); }
+.persona-tool-detail-copy:focus-visible { outline: 2px solid var(--persona-primary); outline-offset: 2px; }
+@media (hover: none) { .persona-tool-detail-copy { opacity: 1; } }
+@media (pointer: coarse) { .persona-tool-detail-copy { width: 40px; height: 40px; top: 2px; right: 2px; } }

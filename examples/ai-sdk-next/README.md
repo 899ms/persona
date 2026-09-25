@@ -207,3 +207,71 @@ The split is deliberate:
 - Start here to understand the base stream adapter contract.
 - Move to `examples/ai-sdk-webmcp` when you need browser-executed page tools and
   pause/resume semantics.
+
+
+## Preview V5 tool activity
+
+When creating the Persona widget, opt into the new defaults:
+
+```ts
+const widget = createAgentExperience(mount, {
+  apiUrl: "/api/ai-sdk/dispatch",
+  future: { v5Defaults: true },
+});
+```
+
+Use the API URL of your chosen adapter route. V5 groups consecutive tool calls
+and keeps their details collapsed while streaming. Open a call to see Request
+and Response blocks; tools without arguments show only Response. Streamed output
+is replaced by the final result. Hover a block or focus it with the keyboard to
+reveal its copy icon; a check confirms copying. Touch devices show the icon
+without hovering. Errors remain visible in the expanded call.
+
+To opt into automatic opening, set
+`features: { toolCallDisplay: { autoExpand: true } }`. Omit the V5 flag to retain
+V4 presentation. See the [theme guide](../../packages/widget/THEME-CONFIG.md#v5-tool-details)
+for color overrides and rendering behavior.
+
+### Optional descriptive group labels
+
+[tool-activity-summary.ts](app/lib/tool-activity-summary.ts) is a reusable,
+frontend-only recipe using the existing `toolCall.renderGroupedSummary` hook.
+It is not enabled in this demo by default and introduces no new Persona API.
+Import it in your widget component:
+
+```ts
+import { renderToolActivitySummary } from "../lib/tool-activity-summary";
+
+const widget = createAgentExperience(mount, {
+  apiUrl: "/api/ai-sdk/dispatch",
+  future: { v5Defaults: true },
+  toolCall: { renderGroupedSummary: renderToolActivitySummary },
+});
+```
+
+Edit the helper's `categories` map to match your backend's exact tool names.
+For example, `read_file` and `read_document` both map to `read`; repeated calls
+produce one “Read files” label. A read followed by a command displays
+“Read files, Ran commands.” Categories retain their first appearance order.
+Each category uses its running label while any call in it is pending or running.
+
+Unknown tools, failures, and approval attention states return `null`, so Persona
+uses its built-in summary for the entire group. This deliberately avoids
+presenting a partial list that hides unmapped calls. Individual tool details
+and disclosure behavior are unchanged.
+
+Built-in example labels are count-neutral. To customize wording or plurals,
+replace a label with a function, for example:
+
+```ts
+command: {
+  running: "Running commands",
+  complete: count => count === 1 ? "Ran one command" : `Ran ${count} commands`,
+},
+```
+
+`count` means tool invocations, not files or search results. Only use object
+counts when your tools guarantee that relationship. For localization, translate
+both states and replace the final `.join(", ")` with your preferred list
+formatter (for example, `Intl.ListFormat`). Metadata need not cross the backend
+boundary: the recipe works with any adapter that supplies stable tool names.

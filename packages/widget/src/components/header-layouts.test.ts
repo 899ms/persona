@@ -16,6 +16,18 @@ const build = (layoutHeaderConfig: Parameters<typeof buildMinimalHeader>[0]["lay
   });
 
 describe("minimal header trailing actions", () => {
+  it.each([{ v5Defaults: false }, { v5Defaults: true }])(
+    "uses the minimal padding token under v5Defaults=%s",
+    (future) => {
+      const elements = buildMinimalHeader({
+        config: { apiUrl: "https://example.com/api", future } as AgentWidgetConfig,
+      });
+      expect(elements.header.style.padding).toBe(
+        "var(--persona-components-header-minimalPadding, var(--persona-components-header-padding, 16px 24px))"
+      );
+    }
+  );
+
   it("clusters actions at the trailing edge with the close button's chrome", () => {
     const onAction = vi.fn();
     const elements = build({

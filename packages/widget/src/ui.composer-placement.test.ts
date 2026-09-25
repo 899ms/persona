@@ -175,3 +175,26 @@ describe("observer lifecycle", () => {
     expect(disconnect).toHaveBeenCalled();
   });
 });
+
+describe.each([false, true])('transcript top fade (V5 %s)', v5Defaults => {
+  it('tracks scroll position, explicit overrides, and clear', () => {
+    const { mount, controller } = makeController({ future: { v5Defaults } });
+    const body = mount.querySelector<HTMLElement>('.persona-widget-body')!;
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(false);
+    body.scrollTop = 80;
+    body.dispatchEvent(new Event('scroll'));
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(v5Defaults);
+    controller.update({ layout: { topFade: true } });
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(true);
+    controller.update({ layout: { topFade: false } });
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(false);
+    controller.update({ layout: { topFade: true } });
+    body.scrollTop = 0;
+    body.dispatchEvent(new Event('scroll'));
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(false);
+    body.scrollTop = 80;
+    body.dispatchEvent(new Event('scroll'));
+    controller.clearChat();
+    expect(body.hasAttribute('data-persona-top-fade')).toBe(false);
+  });
+});

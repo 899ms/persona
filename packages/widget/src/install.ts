@@ -19,6 +19,8 @@ interface SiteAgentInstallConfig {
   jsUrl?: string;
   target?: string | HTMLElement;
   config?: any;
+  /** Opt in to the staged v5 defaults when using top-level installer options. */
+  future?: { v5Defaults?: boolean };
   autoInit?: boolean;
   // Client token mode options (can also be set via data attributes)
   clientToken?: string;
@@ -447,6 +449,7 @@ declare global {
     if (config.clientToken && !widgetConfig.clientToken) widgetConfig.clientToken = config.clientToken;
     if (config.flowId && !widgetConfig.flowId) widgetConfig.flowId = config.flowId;
     if (config.agentId && !widgetConfig.agentId) widgetConfig.agentId = config.agentId;
+    if (config.future && !widgetConfig.future) widgetConfig.future = config.future;
 
     const hasApiConfig = !!(widgetConfig.apiUrl || widgetConfig.clientToken);
     return { target, widgetConfig, hasApiConfig };
@@ -631,4 +634,3 @@ declare global {
   // This prevents Next.js/Nuxt/etc. from removing dynamically added CSS
   waitForHydration(install);
 })();
-

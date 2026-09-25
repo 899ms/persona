@@ -52,6 +52,10 @@ export default defineConfig({
       '@runtypelabs/persona/voice-runtime': fileURLToPath(
         new URL('./src/voice-runtime.ts', import.meta.url)
       ),
+      // Keep UI-mount tests on source when the dist package has not been built.
+      '@runtypelabs/persona/forms-ui': fileURLToPath(
+        new URL('./src/forms-ui.ts', import.meta.url)
+      ),
     },
   },
   test: {

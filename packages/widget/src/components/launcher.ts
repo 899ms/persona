@@ -1,3 +1,4 @@
+import { resolveLauncherVariant } from "../utils/launcher-variant";
 import { createElement, createNode, cx } from "../utils/dom";
 import { AgentWidgetConfig, AgentWidgetLauncherTeaserConfig } from "../types";
 import { positionMap } from "../utils/positioning";
@@ -31,6 +32,14 @@ export const createLauncherButton = (
   const update = (newConfig: AgentWidgetConfig) => {
     const launcher = newConfig.launcher ?? {};
     const dockedMode = isDockedMountMode(newConfig);
+    const circle = resolveLauncherVariant(newConfig) === "circle";
+    if (circle) {
+      button.dataset.personaLauncherVariant = "circle";
+      button.setAttribute("aria-label", launcher.title ?? "Open chat");
+    } else {
+      button.removeAttribute("data-persona-launcher-variant");
+      button.removeAttribute("aria-label");
+    }
 
     const titleEl = button.querySelector("[data-role='launcher-title']");
     if (titleEl) {
@@ -49,7 +58,7 @@ export const createLauncherButton = (
     // Hide/show text container
     const textContainer = button.querySelector(".persona-flex-col");
     if (textContainer) {
-      if (launcher.textHidden || dockedMode) {
+      if (launcher.textHidden || dockedMode || circle) {
         (textContainer as HTMLElement).style.display = "none";
       } else {
         (textContainer as HTMLElement).style.display = "";
@@ -153,7 +162,7 @@ export const createLauncherButton = (
         callToActionIconEl.style.padding = "";
       }
       
-      if (launcher.callToActionIconHidden) {
+      if (launcher.callToActionIconHidden || circle) {
         callToActionIconEl.style.display = "none";
       } else {
         callToActionIconEl.style.display = dockedMode ? "none" : "";

@@ -82,10 +82,11 @@ describe("createAgentExperience detached panel", () => {
     setInnerWidth(originalInnerWidth);
   });
 
-  it("keeps flush sidebar chrome when detachedPanel is unset", () => {
+  it.each([false, true])("keeps flush sidebar chrome when detachedPanel is unset (v5=%s)", (v5Defaults) => {
     const mount = createMount();
     const controller = createAgentExperience(mount, {
       apiUrl: "https://api.example.com/chat",
+      future: { v5Defaults },
       launcher: {
         sidebarMode: true,
         position: "bottom-right",
@@ -100,7 +101,9 @@ describe("createAgentExperience detached panel", () => {
     expect(wrapper.style.bottom).toBe("0px");
     expect(wrapper.style.right).toBe("0px");
     expect(wrapper.style.height).toBe("100vh");
-    expect(panel?.style.borderRadius).toBe("0px");
+    expect(panel?.style.borderRadius).toBe(
+      "var(--persona-components-panel-modes-sidebar-borderRadius, 0)"
+    );
 
     controller.destroy();
   });
@@ -172,11 +175,12 @@ describe("createAgentExperience detached panel", () => {
     controller.destroy();
   });
 
-  it("drops card chrome for docked + launcher off + detached on a mobile viewport", () => {
+  it.each([false, true])("drops card chrome for docked + launcher off + detached on a mobile viewport (v5=%s)", (v5Defaults) => {
     setInnerWidth(480);
     const mount = createMount();
     const controller = createAgentExperience(mount, {
       apiUrl: "https://api.example.com/chat",
+      future: { v5Defaults },
       launcher: {
         mountMode: "docked",
         enabled: false,
@@ -188,7 +192,9 @@ describe("createAgentExperience detached panel", () => {
 
     // Host-layout goes flush fullscreen: no detached attribute, no card shadow or inset.
     expect(mount.hasAttribute("data-persona-panel-detached")).toBe(false);
-    expect(panel?.style.boxShadow).toBe("none");
+    expect(panel?.style.boxShadow).toBe(
+      "var(--persona-components-panel-modes-mobile-shadow, none)"
+    );
     expect(wrapper?.style.padding).toBe("");
 
     controller.destroy();
@@ -214,26 +220,47 @@ describe("createAgentExperience detached panel", () => {
     controller.destroy();
   });
 
-  it("renders a flush inline embed with no shadow; detached opts elevation back in", () => {
+  it.each([false, true])("renders a flush inline embed with no shadow; detached opts elevation back in (v5=%s)", (v5Defaults) => {
     const mount = createMount();
     const controller = createAgentExperience(mount, {
       apiUrl: "https://api.example.com/chat",
+      future: { v5Defaults },
       launcher: { enabled: false },
     });
 
     const { panel } = queryEmbedRefs(mount);
-    expect(panel?.style.boxShadow).toBe("none");
+    expect(panel?.style.boxShadow).toBe(
+      "var(--persona-components-panel-modes-inline-shadow, none)"
+    );
     controller.destroy();
 
     const detachedMount = createMount();
     const detachedController = createAgentExperience(detachedMount, {
       apiUrl: "https://api.example.com/chat",
+      future: { v5Defaults },
       launcher: { enabled: false, detachedPanel: true },
     });
 
     const detachedPanel = queryEmbedRefs(detachedMount).panel;
     expect(detachedPanel?.style.boxShadow).toContain("--persona-panel-shadow");
     detachedController.destroy();
+  });
+
+  it.each([false, true])("emits mode chrome tokens in defaults v%s", (v5Defaults) => {
+    const mount = createMount();
+    const controller = createAgentExperience(mount, {
+      apiUrl: "https://api.example.com/chat",
+      future: { v5Defaults },
+      launcher: { enabled: false },
+    });
+
+    const { panel } = queryEmbedRefs(mount);
+    expect(mount.dataset.personaDefaults).toBe(v5Defaults ? "v5" : "v4");
+    expect(panel?.style.boxShadow).toBe(
+      "var(--persona-components-panel-modes-inline-shadow, none)"
+    );
+    expect(mount.style.getPropertyValue("--persona-components-panel-modes-inline-shadow")).toBe("none");
+    controller.destroy();
   });
 });
 

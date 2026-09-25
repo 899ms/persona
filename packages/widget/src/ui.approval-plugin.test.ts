@@ -20,6 +20,18 @@ const createMount = () => {
   return mount;
 };
 
+const approvalDetails = (mount: HTMLElement): HTMLElement => {
+  const details = mount.querySelector<HTMLElement>('[data-role="params"]');
+  expect(details).not.toBeNull();
+  return details!;
+};
+
+const toggleApprovalDetails = (mount: HTMLElement): void => {
+  const toggle = mount.querySelector<HTMLElement>('[data-action="toggle-params"]');
+  expect(toggle).not.toBeNull();
+  toggle!.click();
+};
+
 const injectApproval = (
   controller: ReturnType<typeof createAgentExperience>,
   {
@@ -209,5 +221,56 @@ describe("renderApproval plugin hook", () => {
 
     expect(mount.querySelector('[data-test-id="custom-pending"]')).toBeNull();
     expect(mount.querySelector(".persona-approval-bubble")).not.toBeNull();
+  });
+
+  it("keeps approval disclosure expansion separate for widgets with matching message ids", () => {
+    const firstMount = createMount();
+    const first = createAgentExperience(firstMount, {
+      apiUrl: "https://api.example.com/chat",
+      launcher: { enabled: false },
+    } as unknown as Parameters<typeof createAgentExperience>[1]);
+    injectApproval(first, { id: "shared" });
+    toggleApprovalDetails(firstMount);
+    expect(approvalDetails(firstMount).hidden).toBe(false);
+
+    // The transcript derives DOM ids from the message id. Keep both widgets
+    // mounted while removing only the first rendered row ids so the fixture
+    // can model equal message ids without duplicate document ids.
+    firstMount.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+
+    const secondMount = createMount();
+    const second = createAgentExperience(secondMount, {
+      apiUrl: "https://api.example.com/chat",
+      launcher: { enabled: false },
+    } as unknown as Parameters<typeof createAgentExperience>[1]);
+    injectApproval(second, { id: "shared" });
+
+    expect(approvalDetails(secondMount).hidden).toBe(true);
+    first.destroy();
+    second.destroy();
+  });
+
+  it("resets approval disclosure expansion on clearChat and destroy", () => {
+    const mount = createMount();
+    const controller = createAgentExperience(mount, {
+      apiUrl: "https://api.example.com/chat",
+      launcher: { enabled: false },
+    } as unknown as Parameters<typeof createAgentExperience>[1]);
+    injectApproval(controller, { id: "after-clear" });
+    toggleApprovalDetails(mount);
+    expect(approvalDetails(mount).hidden).toBe(false);
+    controller.clearChat();
+    injectApproval(controller, { id: "after-clear" });
+    expect(approvalDetails(mount).hidden).toBe(true);
+    controller.destroy();
+
+    const replacementMount = createMount();
+    const replacement = createAgentExperience(replacementMount, {
+      apiUrl: "https://api.example.com/chat",
+      launcher: { enabled: false },
+    } as unknown as Parameters<typeof createAgentExperience>[1]);
+    injectApproval(replacement, { id: "after-clear" });
+    expect(approvalDetails(replacementMount).hidden).toBe(true);
+    replacement.destroy();
   });
 });

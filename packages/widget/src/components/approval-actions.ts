@@ -34,7 +34,7 @@ import type {
   AgentWidgetApprovalConfig,
 } from "../types";
 import type { AgentWidgetPlugin } from "../plugins/types";
-import { humanizeToolName, approvalDetailsExpansionState } from "./approval-bubble";
+import { humanizeToolName } from "./approval-bubble";
 
 type Approval = NonNullable<AgentWidgetMessage["approval"]>;
 type Decide = (options?: { remember?: boolean }) => void;
@@ -103,10 +103,11 @@ const resolveApprovalConfig = (
 
 const isDetailsExpanded = (
   messageId: string,
+  expansionState: Map<string, boolean>,
   approvalConfig?: AgentWidgetApprovalConfig
 ): boolean => {
   const mode = approvalConfig?.detailsDisplay ?? "collapsed";
-  return approvalDetailsExpansionState.get(messageId) ?? mode === "expanded";
+  return expansionState.get(messageId) ?? mode === "expanded";
 };
 
 const kbd = (label: string): HTMLElement => {
@@ -173,6 +174,7 @@ const buildResolvedTrace = (approval: Approval): HTMLElement => {
 
 const buildPending = (
   state: InstanceState,
+  expansionState: Map<string, boolean>,
   message: AgentWidgetMessage,
   approval: Approval,
   approvalConfig: AgentWidgetApprovalConfig | undefined,
@@ -199,7 +201,7 @@ const buildPending = (
   const hasDescription = Boolean(approval.description) && detailsMode !== "hidden";
   const hasParams = approval.parameters != null && detailsMode !== "hidden";
   const hasDetails = hasDescription || hasParams;
-  const expanded = hasDetails && isDetailsExpanded(message.id, approvalConfig);
+  const expanded = hasDetails && isDetailsExpanded(message.id, expansionState, approvalConfig);
 
   // The card uses the whole header as the disclosure toggle (chevron-only, no
   // separate text button), but the legacy `showDetailsLabel`/`hideDetailsLabel`
@@ -351,7 +353,7 @@ const buildPending = (
         pre.hidden = !willOpen;
         head.setAttribute("aria-expanded", willOpen ? "true" : "false");
         head.setAttribute("aria-label", willOpen ? hideDetailsLabel : showDetailsLabel);
-        approvalDetailsExpansionState.set(message.id, willOpen);
+        expansionState.set(message.id, willOpen);
       }
       return;
     }
@@ -389,7 +391,9 @@ const buildPending = (
  * callbacks — both close over the SAME per-instance state, so destroying one
  * widget never disturbs another widget's open approvals on the same page.
  */
-export const createBuiltInApprovalPlugin = (): {
+export const createBuiltInApprovalPlugin = (
+  expansionState = new Map<string, boolean>()
+): {
   plugin: AgentWidgetPlugin;
   teardown: () => void;
 } => {
@@ -419,7 +423,16 @@ export const createBuiltInApprovalPlugin = (): {
       // re-render of an older card doesn't reorder it ahead of a newer one.
       detachMessage(state, message.id);
       const enableAlways = approvalConfig?.enableAlwaysAllow === true;
-      const card = buildPending(state, message, approval, approvalConfig, approve, deny, enableAlways);
+      const card = buildPending(
+        state,
+        expansionState,
+        message,
+        approval,
+        approvalConfig,
+        approve,
+        deny,
+        enableAlways
+      );
 
       if (enableAlways) {
         if (!state.pendingOrder.includes(message.id)) state.pendingOrder.push(message.id);

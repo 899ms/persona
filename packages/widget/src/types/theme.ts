@@ -212,6 +212,8 @@ export interface InputTokens extends ComponentTokenSet {
 }
 
 export interface LauncherTokens extends ComponentTokenSet {
+  /** Distance from the viewport edges. Circle default: 20px; pill: 24px. */
+  offset?: string;
   size: string;
   iconSize: string;
   shadow: TokenReference<'shadow'>;
@@ -235,6 +237,15 @@ export interface PanelTokens extends ComponentTokenSet {
   inset?: string;
   /** Background of the region revealed behind a detached panel. */
   canvasBackground?: string;
+  /** Chrome defaults by rendered panel mode. */
+  modes?: Partial<Record<'floating' | 'inline' | 'sidebar' | 'docked' | 'mobile', {
+    /** Full border shorthand (for example, `"1px solid var(--persona-border)"`). */
+    border?: string;
+    /** Box-shadow token reference or raw CSS shadow. */
+    shadow?: string;
+    /** Corner radius token reference or raw CSS radius. */
+    borderRadius?: TokenReference<'radius'>;
+  }>>;
 }
 
 /** Per-element text styling shared by themable text surfaces. */
@@ -263,10 +274,16 @@ export interface HeaderTokens extends ComponentTokenSet {
    */
   border?: TokenReference<'color'>;
   borderRadius: TokenReference<'radius'>;
+  /** Standard-header padding. @default "20px 24px" */
+  padding?: string;
+  /** Minimal-header padding. Explicitly wins over `padding`. @default "16px 24px" */
+  minimalPadding?: string;
   /** Background of the rounded avatar tile next to the title (Lucide / emoji / image). */
   iconBackground: TokenReference<'color'>;
   /** Foreground (glyph stroke or emoji text) on the header avatar tile. */
   iconForeground: TokenReference<'color'>;
+  /** Header identity glyph size as a fraction of its icon box. @default "0.6" */
+  iconScale?: string;
   /**
    * Legacy alias of `title.color`; `title.color` wins when both are set.
    * Unset, the title takes `foreground`, then the primary color.
@@ -305,6 +322,14 @@ export interface HeaderTokens extends ComponentTokenSet {
    * sibling. @default "1.5"
    */
   controlStrokeWidth?: string;
+  /** Header control corner radius. Per-control radius overrides win. */
+  controlBorderRadius?: string;
+  /** Default control hover/focus fill. Explicit button backgrounds win. */
+  controlHoverBackground?: TokenReference<'color'>;
+  /** Default control hover/focus icon color. Explicit button colors win. */
+  controlHoverForeground?: TokenReference<'color'>;
+  /** Keyboard focus outline; unset preserves the browser default. */
+  controlFocusOutline?: string;
   /** Box-shadow on the header (e.g., a fade shadow to replace the default border). */
   shadow?: string;
   /** Override the header bottom border (e.g., `none`). */
@@ -484,6 +509,12 @@ export interface MessageGeometryTokens {
 }
 
 export interface MessageTokens {
+  /** Height of the optional transcript top fade. Default 18px. */
+  topFadeHeight?: string;
+  /** Vertical gap between transcript turns. @default "12px" */
+  gap?: string;
+  /** Gap between turns in fullscreen mode; falls back to `gap`. */
+  fullscreenGap?: string;
   user: MessageGeometryTokens & {
     background: TokenReference<'color'>;
     text: TokenReference<'color'>;
@@ -497,6 +528,8 @@ export interface MessageTokens {
     borderRadius: TokenReference<'radius'>;
     /** Assistant bubble border color (CSS color). */
     border?: TokenReference<'color'>;
+    /** Border width; set to 0px for a flat assistant response. @default "1px" */
+    borderWidth?: string;
     /** Assistant bubble box-shadow (token ref or raw CSS, e.g. `none`). */
     shadow?: string;
   };
@@ -622,13 +655,42 @@ export interface AttachmentTokens {
 }
 
 /** Tool-call row chrome (collapsible tool bubbles). */
-export interface ToolBubbleTokens {
+export interface ActivityTokens {
+  /** Minimum activity row height. */
+  rowHeight?: string;
+  /** Group child indentation; falls back to indent when unset. V5: 0px. */
+  groupIndent?: string;
+  /** Extra vertical gap between grouped rows. V5: 0px. */
+  groupGap?: string;
+  /** Padding around expanded group children. V5: 0px. */
+  groupPadding?: string;
+  /** Gap between consecutive activity entries. V5: 0px. */
+  transcriptGap?: string;
+  /** Gap from activity to an assistant response. V5: 12px. */
+  responseGap?: string;
+  /** Expanded body padding. V5: 4px 0. */
+  bodyPadding?: string;
+  /** Expanded reasoning text size. V5: 13px. */
+  bodySize?: string;
+  /** Expanded reasoning line height. V5: 1.5. */
+  bodyLineHeight?: string;
+  /** Expanded reasoning font weight. V5: 400. */
+  bodyFontWeight?: string;
+  /** Gap between expanded detail sections. V5: 8px. */
+  sectionGap?: string;
+  labelSize?: string;
+  iconSize?: string;
+  indent?: string;
+  bodySurface?: TokenReference<'color'>;
+}
+
+export interface ToolBubbleTokens extends ActivityTokens {
   /** Box-shadow for tool bubbles (token ref or raw CSS, e.g. `none`). */
   shadow: string;
 }
 
 /** Reasoning / “thinking” row chrome. */
-export interface ReasoningBubbleTokens {
+export interface ReasoningBubbleTokens extends ActivityTokens {
   shadow: string;
 }
 
@@ -769,6 +831,10 @@ export interface ComposerChromeTokens {
   shadow: string;
   /** Border color of the composer form. @default semantic.colors.border */
   borderColor?: TokenReference<'color'>;
+  /** Focused form border color; falls back to borderColor. V5: a stronger neutral border. */
+  focusBorderColor?: TokenReference<'color'>;
+  /** Outer focus ring (CSS outline shorthand). V4: none; V5: a thin neutral ring. */
+  focusRing?: string;
   /** Inner padding of the composer form (raw CSS shorthand). @default "0.75rem 1rem" */
   padding?: string;
   /** Gap between the textarea row and the actions row. @default "0.5rem" */
@@ -787,12 +853,18 @@ export interface ComposerChromeTokens {
   controlSize?: string;
   /** Glyph box inside those controls. @default "24px" */
   controlIconSize?: string;
+  /** Send/stop glyph size. Explicit sendButton.iconSize wins. V5: 18px. */
+  sendIconSize?: string;
+  /** Icon-mode submit button radius. V4 inherits the primary button; V5: 9999px. */
+  sendButtonRadius?: string;
+  /** Footer top border (CSS shorthand). V4: 1px solid divider; V5: none. */
+  footerBorder?: string;
   /**
    * Background painted behind an overlaid composer footer
    * (`composer.placement: "overlay"`). Any CSS `background` value, gradients
    * included — same convention as the shadow tokens. Inert under
    * `placement: "block"`.
-   * @default "transparent"
+   * @default "transparent" (V4); a theme-aware 24px fade (V5)
    */
   overlayBand?: string;
   /** Segmented mode-group track. */
@@ -979,6 +1051,8 @@ export interface ScrollToBottomTokens extends ComponentTokenSet {
 
 /** Visual tokens shared by one suggestion presentation variant. */
 export interface SuggestionVariantTokens extends ComponentTokenSet {
+  /** Label weight. V4: 500; V5: 400. */
+  fontWeight?: string;
   /** Space inside one item, between its icon and its copy. */
   gap?: string;
   /** Space between suggestion items in the container. */
@@ -1030,6 +1104,7 @@ export interface ComponentTokens {
   voice: VoiceTokens;
   approval: ApprovalTokens;
   attachment: AttachmentTokens;
+  activity?: ActivityTokens;
   toolBubble: ToolBubbleTokens;
   reasoningBubble: ReasoningBubbleTokens;
   /** Event-stream inspector badge chips. */
@@ -1124,4 +1199,6 @@ export interface CreateThemeOptions {
   plugins?: PersonaThemePlugin[];
   validate?: boolean;
   extend?: PersonaTheme;
+  /** Selects the defaults overlay; explicit theme tokens always take precedence. */
+  future?: { v5Defaults?: boolean };
 }

@@ -1,3 +1,4 @@
+import { CIRCLE_LAUNCHER_TOKENS } from "./launcher-variant";
 import type {
   DeepPartial,
   PersonaTheme,
@@ -9,8 +10,8 @@ import type {
   SemanticTokens,
 } from '../types/theme';
 import {
-  DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
   DEFAULT_FLOATING_LAUNCHER_WIDTH,
+  resolveDefaultsVersion,
 } from '../defaults';
 
 // Detached/docked panel defaults, shared by the panel token defaults, the alias
@@ -25,7 +26,7 @@ const spacing = (() => {
   return s as Record<0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 16 | 20 | 24 | 32 | 40 | 48 | 56 | 64, string>;
 })();
 
-export const DEFAULT_PALETTE = {
+const DEFAULT_PALETTE_BASE = {
   colors: {
     primary: {
       50: '#ffffff',
@@ -209,7 +210,7 @@ export const DEFAULT_PALETTE = {
   },
 };
 
-export const DEFAULT_SEMANTIC: SemanticTokens = {
+const DEFAULT_SEMANTIC_BASE: SemanticTokens = {
   colors: {
     primary: 'palette.colors.primary.500',
     secondary: 'palette.colors.secondary.500',
@@ -257,7 +258,7 @@ export const DEFAULT_SEMANTIC: SemanticTokens = {
   },
 };
 
-export const DEFAULT_COMPONENTS: ComponentTokens = {
+const DEFAULT_COMPONENTS_BASE: ComponentTokens = {
   button: {
     primary: {
       // Primary Actions role: solid primary
@@ -305,13 +306,31 @@ export const DEFAULT_COMPONENTS: ComponentTokens = {
   },
   panel: {
     width: DEFAULT_FLOATING_LAUNCHER_WIDTH,
-    maxWidth: DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
-    height: '600px',
-    maxHeight: 'calc(100vh - 80px)',
+    // Matches the existing floating runtime geometry. `maxWidth` and
+    // `maxHeight` intentionally do not impose a second cap; ui.ts applies
+    // the responsive width and heightOffset rules for this mode.
+    maxWidth: 'none',
+    height: 'min(640px, max(200px, calc(100vh - 64px)))',
+    maxHeight: 'none',
     borderRadius: 'palette.radius.xl',
     shadow: 'palette.shadows.xl',
     inset: DEFAULT_PANEL_INSET,
     canvasBackground: DEFAULT_PANEL_CANVAS_BACKGROUND,
+    modes: {
+      floating: {
+        border: '1px solid var(--persona-border)',
+        shadow: 'palette.shadows.xl',
+        borderRadius: 'palette.radius.xl',
+      },
+      inline: {
+        border: '1px solid var(--persona-border)',
+        shadow: 'none',
+        borderRadius: 'palette.radius.xl',
+      },
+      docked: { border: 'none', shadow: 'none', borderRadius: 'palette.radius.xl' },
+      sidebar: { border: 'none', borderRadius: '0' },
+      mobile: { border: 'none', shadow: 'none', borderRadius: '0' },
+    },
   },
   header: {
     // Header role: solid primary. Border, subtitle, and action icons stay
@@ -319,11 +338,13 @@ export const DEFAULT_COMPONENTS: ComponentTokens = {
     background: 'palette.colors.primary.500',
     foreground: 'palette.colors.primary.50',
     borderRadius: 'palette.radius.xl palette.radius.xl 0 0',
-    padding: 'semantic.spacing.md',
+    padding: '20px 24px',
+    minimalPadding: '16px 24px',
     iconBackground: 'palette.colors.primary.600',
     iconForeground: 'palette.colors.primary.50',
   },
   message: {
+    gap: '12px',
     user: {
       // User Messages role: solid primary
       background: 'palette.colors.primary.500',
@@ -532,6 +553,110 @@ export const DEFAULT_COMPONENTS: ComponentTokens = {
   },
 };
 
+/** Shared defaults with a small opt-in V5 overlay. */
+const DEFAULT_PALETTE_GRAY_V4 = DEFAULT_PALETTE_BASE.colors.gray;
+const DEFAULT_PALETTE_GRAY_V5 = {
+  50: '#fafafa', 100: '#f5f5f5', 200: '#e5e5e5', 300: '#d4d4d4',
+  400: '#a3a3a3', 500: '#737373', 600: '#525252', 700: '#404040',
+  800: '#262626', 900: '#171717', 950: '#0a0a0a',
+};
+
+export const DEFAULT_PALETTE_V4 = {
+  ...DEFAULT_PALETTE_BASE,
+  colors: { ...DEFAULT_PALETTE_BASE.colors, gray: DEFAULT_PALETTE_GRAY_V4 },
+};
+export const DEFAULT_PALETTE_V5 = {
+  ...DEFAULT_PALETTE_BASE,
+  colors: { ...DEFAULT_PALETTE_BASE.colors, gray: DEFAULT_PALETTE_GRAY_V5 },
+  radius: { none: '0px', sm: '4px', md: '8px', lg: '12px', xl: '16px', '2xl': '24px', full: '9999px' },
+};
+export const DEFAULT_PALETTE = DEFAULT_PALETTE_V4;
+
+export const DEFAULT_SEMANTIC_V4 = DEFAULT_SEMANTIC_BASE;
+export const DEFAULT_SEMANTIC_V5: SemanticTokens = {
+  ...DEFAULT_SEMANTIC_BASE,
+  colors: {
+    ...DEFAULT_SEMANTIC_BASE.colors,
+    surface: '#ffffff', background: '#ffffff', container: 'semantic.colors.surface',
+    textInverse: '#ffffff',
+  },
+  typography: { ...DEFAULT_SEMANTIC_BASE.typography, fontSize: '14px', lineHeight: '1.5' },
+};
+export const DEFAULT_SEMANTIC = DEFAULT_SEMANTIC_V4;
+
+export const DEFAULT_COMPONENTS_V4 = DEFAULT_COMPONENTS_BASE;
+export const DEFAULT_COMPONENTS_V5: ComponentTokens = {
+  ...DEFAULT_COMPONENTS_BASE,
+  launcher: CIRCLE_LAUNCHER_TOKENS,
+  activity: { rowHeight: "32px", labelSize: "13px", iconSize: "16px", indent: "0px", groupIndent: "0px", groupGap: "0px", groupPadding: "0px", transcriptGap: "0px", responseGap: "12px", bodyPadding: "4px 0", bodySize: "13px", bodyLineHeight: "1.5", bodyFontWeight: "400", sectionGap: "8px", bodySurface: "transparent" },
+  toolBubble: { shadow: "none" },
+  reasoningBubble: { shadow: "none" },
+  input: { ...DEFAULT_COMPONENTS_BASE.input, borderRadius: 'palette.radius.full' },
+  introCard: { ...DEFAULT_COMPONENTS_BASE.introCard, title: { fontSize: '22px', fontWeight: '500' } },
+  suggestion: {
+    chip: { ...DEFAULT_COMPONENTS_BASE.suggestion!.chip, fontWeight: '400' },
+    card: { ...DEFAULT_COMPONENTS_BASE.suggestion!.card, fontWeight: '400' },
+    list: { ...DEFAULT_COMPONENTS_BASE.suggestion!.list, fontWeight: '400' },
+  },
+  panel: {
+    ...DEFAULT_COMPONENTS_BASE.panel,
+    width: 'min(400px, calc(100vw - 24px))',
+    height: 'min(704px, calc(100dvh - 104px))',
+    borderRadius: 'palette.radius.xl',
+  },
+  header: {
+    ...DEFAULT_COMPONENTS_BASE.header,
+    background: 'semantic.colors.container', foreground: 'semantic.colors.text',
+    padding: '8px 8px 8px 16px', minimalPadding: '8px 8px 8px 16px',
+    minHeight: '48px', borderBottom: 'none',
+    iconBackground: 'transparent', iconForeground: 'semantic.colors.text', iconScale: '1',
+    controlSize: '28px', controlIconSize: '18px', controlStrokeWidth: '1.5',
+    actionIconForeground: 'semantic.colors.textMuted',
+    controlBorderRadius: '8px',
+    controlHoverBackground: 'color-mix(in srgb, var(--persona-text) 8%, transparent)',
+    controlHoverForeground: 'semantic.colors.text',
+    controlFocusOutline: '2px solid color-mix(in srgb, var(--persona-text) 50%, transparent)',
+    title: { fontSize: '14px', fontWeight: '500', lineHeight: '1.5' },
+  },
+  message: {
+    ...DEFAULT_COMPONENTS_BASE.message,
+    gap: '20px', fullscreenGap: '28px', topFadeHeight: '18px',
+    user: {
+      ...DEFAULT_COMPONENTS_BASE.message.user,
+      background: 'palette.colors.gray.100', text: 'semantic.colors.text',
+      borderRadius: 'palette.radius.xl', shadow: 'none', padding: '8px 14px',
+      fontSize: '14px', lineHeight: '1.5',
+    },
+    assistant: {
+      ...DEFAULT_COMPONENTS_BASE.message.assistant,
+      background: 'transparent', border: 'transparent', borderWidth: '0px',
+      borderRadius: '0px', shadow: 'none', padding: '0px',
+      fontSize: '14px', lineHeight: '1.55',
+    },
+  },
+  composer: {
+    ...DEFAULT_COMPONENTS_BASE.composer,
+    padding: '8px', fontSize: '15px', lineHeight: '1.5', controlSize: '32px', controlIconSize: '20px',
+    sendIconSize: '18px', sendButtonRadius: '9999px', footerBorder: 'none',
+    overlayBand: 'linear-gradient(to bottom, transparent, var(--persona-container) 24px)',
+    focusBorderColor: 'color-mix(in srgb, var(--persona-text) 28%, var(--persona-border))',
+    focusRing: '1px solid color-mix(in srgb, var(--persona-text) 12%, transparent)',
+  },
+};
+export const DEFAULT_COMPONENTS = DEFAULT_COMPONENTS_V4;
+
+export type ThemeDefaultsVersion = 'v4' | 'v5';
+
+export const resolveThemeDefaultsVersion = (future?: { v5Defaults?: boolean }): ThemeDefaultsVersion =>
+  resolveDefaultsVersion({ future });
+
+export const resolveThemeDefaults = (future?: { v5Defaults?: boolean }) => {
+  const version = resolveThemeDefaultsVersion(future);
+  return version === 'v5'
+    ? { palette: DEFAULT_PALETTE_V5, semantic: DEFAULT_SEMANTIC_V5, components: DEFAULT_COMPONENTS_V5 }
+    : { palette: DEFAULT_PALETTE_V4, semantic: DEFAULT_SEMANTIC_V4, components: DEFAULT_COMPONENTS_V4 };
+};
+
 export function resolveTokenValue(theme: PersonaTheme, path: string): string | undefined {
   if (
     !path.startsWith('palette.') &&
@@ -673,10 +798,11 @@ export function createTheme(
   userConfig?: DeepPartial<PersonaTheme>,
   options: CreateThemeOptions = {}
 ): PersonaTheme {
+  const defaults = resolveThemeDefaults(options.future);
   const baseTheme: PersonaTheme = {
-    palette: DEFAULT_PALETTE as PersonaTheme['palette'],
-    semantic: DEFAULT_SEMANTIC as PersonaTheme['semantic'],
-    components: DEFAULT_COMPONENTS as PersonaTheme['components'],
+    palette: defaults.palette as PersonaTheme['palette'],
+    semantic: defaults.semantic as PersonaTheme['semantic'],
+    components: defaults.components as PersonaTheme['components'],
   };
 
   let theme: PersonaTheme = {
@@ -737,6 +863,30 @@ export function createTheme(
       userConfig?.components as Partial<ComponentTokens> | undefined
     ),
   } as PersonaTheme;
+
+  // A shared header padding is also the minimal-layout override unless the
+  // host supplies the more specific token. Both keys remain emitted CSS vars,
+  // so live updates and scheme changes restyle existing header DOM in place.
+  const activity = userConfig?.components?.activity;
+  for (const kind of ['toolBubble', 'reasoningBubble'] as const) {
+    for (const field of ['rowHeight', 'labelSize', 'iconSize', 'indent', 'bodySurface'] as const) {
+      if (activity?.[field] !== undefined) theme.components[kind][field] = activity[field];
+    }
+  }
+  const legacySurface = userConfig?.components?.collapsibleWidget?.surface;
+  if (legacySurface !== undefined && activity?.bodySurface === undefined) {
+    theme.components.activity = { ...theme.components.activity, bodySurface: legacySurface };
+  }
+
+  const suppliedHeader = userConfig?.components?.header;
+  if (suppliedHeader?.padding !== undefined && suppliedHeader.minimalPadding === undefined) {
+    theme.components.header.minimalPadding = theme.components.header.padding;
+  }
+
+  const suppliedMessage = userConfig?.components?.message;
+  if (suppliedMessage?.gap !== undefined && suppliedMessage.fullscreenGap === undefined) {
+    theme.components.message.fullscreenGap = theme.components.message.gap;
+  }
 
   if (options.validate !== false) {
     const validation = validateTheme(theme);
@@ -1224,12 +1374,21 @@ export function themeToCssVariables(theme: PersonaTheme): Record<string, string>
   ]);
 
   // Collapsible widget chrome (tool/reasoning/approval bubbles)
-  cssVars['--cw-container'] =
-    cssVars['--persona-components-collapsibleWidget-container'] ?? cssVars['--persona-surface'];
-  cssVars['--cw-surface'] =
-    cssVars['--persona-components-collapsibleWidget-surface'] ?? cssVars['--persona-surface'];
-  cssVars['--cw-border'] =
-    cssVars['--persona-components-collapsibleWidget-border'] ?? cssVars['--persona-border'];
+  const collapsibleWidgetAliases = [
+    ['container', 'surface'],
+    ['surface', 'surface'],
+    ['border', 'border'],
+  ] as const;
+  for (const [name, semanticFallback] of collapsibleWidgetAliases) {
+    const value =
+      cssVars[`--persona-components-collapsibleWidget-${name}`] ??
+      cssVars[`--persona-${semanticFallback}`];
+    if (value !== undefined) {
+      cssVars[`--persona-cw-${name}`] = value;
+      // Kept for custom styles that adopted the original unprefixed aliases.
+      cssVars[`--cw-${name}`] = value;
+    }
+  }
 
   emitAliases(cssVars, [
     ['message-border', 'components-message-border', 'border'],
@@ -1246,6 +1405,7 @@ export function themeToCssVariables(theme: PersonaTheme): Record<string, string>
     ['message-user-font-family', 'components-message-user-fontFamily'],
     ['message-user-line-height', 'components-message-user-lineHeight'],
     ['message-assistant-padding', 'components-message-assistant-padding'],
+    ['message-assistant-border-width', 'components-message-assistant-borderWidth'],
     ['message-assistant-max-width', 'components-message-assistant-maxWidth'],
     ['message-assistant-font-size', 'components-message-assistant-fontSize'],
     ['message-assistant-font-family', 'components-message-assistant-fontFamily'],

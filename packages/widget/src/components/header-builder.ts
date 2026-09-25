@@ -1,6 +1,7 @@
 import { createElement, createNode } from "../utils/dom";
 import { renderLucideIcon } from "../utils/icons";
 import { AgentWidgetConfig } from "../types";
+import { DEFAULT_HEADER_ICON_SIZE } from "../defaults";
 import { createCloseButton, createClearChatButton } from "./header-parts";
 
 /** CSS `color` values; variables are set on `[data-persona-root]` from `theme.components.header`. */
@@ -10,7 +11,7 @@ export const HEADER_THEME_CSS = {
   subtitleColor:
     "var(--persona-header-subtitle-fg, var(--persona-text-muted, var(--persona-muted, #9ca3af)))",
   actionIconColor:
-    "var(--persona-header-action-icon-fg, var(--persona-muted, #9ca3af))",
+    "var(--persona-header-control-state-fg, var(--persona-header-action-icon-fg, var(--persona-muted, #9ca3af)))",
   /** One knob for both header builders; the Messages rail header shares it. */
   minHeight: "var(--persona-header-min-height, auto)",
 } as const;
@@ -64,9 +65,10 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
 
   const header = createNode("div", {
     className:
-      "persona-widget-header persona-flex persona-items-center persona-gap-3 persona-px-6 persona-py-5",
+      "persona-widget-header persona-flex persona-items-center persona-gap-3",
     attrs: { "data-persona-theme-zone": "header" },
     style: {
+      padding: "var(--persona-components-header-padding, 20px 24px)",
       minHeight: HEADER_THEME_CSS.minHeight,
       backgroundColor: "var(--persona-header-bg, var(--persona-surface, #ffffff))",
       borderBottomColor: "var(--persona-header-border, var(--persona-divider, #f1f5f9))",
@@ -77,7 +79,7 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
   });
 
   const launcher = config?.launcher ?? {};
-  const headerIconSize = launcher.headerIconSize ?? "48px";
+  const headerIconSize = launcher.headerIconSize ?? DEFAULT_HEADER_ICON_SIZE;
   const closeButtonPlacement = launcher.closeButtonPlacement ?? "inline";
   const headerIconHidden = launcher.headerIconHidden ?? false;
   const headerIconName = launcher.headerIconName;
@@ -100,6 +102,8 @@ export const buildHeader = (context: HeaderBuildContext): HeaderElements => {
       const iconSize = parseFloat(headerIconSize) || 24;
       const iconSvg = renderLucideIcon(headerIconName, iconSize * 0.6, "currentColor", 1);
       if (iconSvg) {
+        iconSvg.style.width = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
+        iconSvg.style.height = `calc(${iconSize}px * var(--persona-components-header-iconScale, 0.6))`;
         iconHolder.replaceChildren(iconSvg);
       } else {
         // Fallback to agentIconText if Lucide icon fails
@@ -238,4 +242,3 @@ export const attachHeaderToContainer = (
     container.appendChild(headerElements.clearChatButtonWrapper);
   }
 };
-

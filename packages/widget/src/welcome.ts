@@ -55,6 +55,7 @@ export interface ResolvedWelcomeConfig {
    * Optional on the interface, always populated by `resolveWelcomeConfig`:
    * a plugin literal built against an older minor must still type-check.
    */
+  layout?: "top" | "centered";
   anchor?: AgentWidgetWelcomeAnchor;
   /** Percentage string; validated, falls back to "44%". */
   anchorComposerTop?: string;
@@ -80,10 +81,14 @@ const warnOnce = (config: AgentWidgetConfig | undefined, messages: string[]) => 
  * `copy` alias, else the default above.
  */
 export const resolveWelcomeConfig = (
-  config?: AgentWidgetConfig
+  config?: AgentWidgetConfig,
+  fullscreen = config?.launcher?.fullHeight === true &&
+    !config.launcher.sidebarMode && config.launcher.mountMode !== "docked"
 ): ResolvedWelcomeConfig => {
   const welcome = config?.welcome;
   const copy = config?.copy;
+  const v5 = config?.future?.v5Defaults === true;
+  const layout = welcome?.layout ?? (v5 ? "centered" : "top");
 
   const variant: AgentWidgetWelcomeVariant = isSet(welcome, "variant")
     ? welcome!.variant!
@@ -91,13 +96,14 @@ export const resolveWelcomeConfig = (
       ? "none"
       : "card";
 
-  // Hero IS the greeting: `dismiss` is forced and `message` is suppressed.
+  // Legacy V4 heroes force dismissal; opting into layout makes it configurable.
+  // A hero remains the greeting, so its separate message is always suppressed.
   const dismiss: AgentWidgetWelcomeDismiss =
-    variant === "hero"
+    variant === "hero" && !v5 && welcome?.layout === undefined
       ? "on-first-message"
       : isSet(welcome, "dismiss")
         ? welcome!.dismiss!
-        : "never";
+        : v5 || variant === "hero" ? "on-first-message" : "never";
 
   const conflicts: string[] = [];
   if (isSet(welcome, "title") && isSet(copy, "welcomeTitle")) {
@@ -120,14 +126,14 @@ export const resolveWelcomeConfig = (
       'welcome.message is ignored when welcome.variant is "hero": the hero is the greeting.'
     );
   }
-  if (variant === "hero" && isSet(welcome, "dismiss") && welcome!.dismiss !== "on-first-message") {
+  if (!v5 && welcome?.layout === undefined && variant === "hero" && isSet(welcome, "dismiss") && welcome!.dismiss !== "on-first-message") {
     conflicts.push(
       'welcome.dismiss is pinned to "on-first-message" when welcome.variant is "hero".'
     );
   }
 
   const anchor: AgentWidgetWelcomeAnchor =
-    welcome?.anchor === "center" ? "center" : "bottom";
+    welcome?.anchor ?? (layout === "centered" && fullscreen ? "center" : "bottom");
   const anchorTopValid = parseAnchorFraction(welcome?.anchorComposerTop) !== null;
   if (isSet(welcome, "anchorComposerTop") && !anchorTopValid) {
     conflicts.push(
@@ -147,16 +153,16 @@ export const resolveWelcomeConfig = (
   return {
     title: isSet(welcome, "title")
       ? welcome!.title!
-      : copy?.welcomeTitle ?? DEFAULT_WELCOME_TITLE,
+      : copy?.welcomeTitle ?? (v5 ? "What can I help with?" : DEFAULT_WELCOME_TITLE),
     kicker: welcome?.kicker ?? "",
     subtitle: isSet(welcome, "subtitle")
       ? welcome!.subtitle!
-      : copy?.welcomeSubtitle ?? DEFAULT_WELCOME_SUBTITLE,
+      : copy?.welcomeSubtitle ?? (v5 ? "" : DEFAULT_WELCOME_SUBTITLE),
     icon: welcome?.icon,
     align:
       welcome?.align === "start" || welcome?.align === "center"
         ? welcome.align
-        : undefined,
+        : layout === "centered" ? "center" : undefined,
     iconPlacement:
       welcome?.icon && typeof welcome.icon !== "function" &&
       welcome.icon.placement === "inline"
@@ -165,6 +171,7 @@ export const resolveWelcomeConfig = (
     variant,
     dismiss,
     message: variant === "hero" ? undefined : welcome?.message,
+    layout,
     anchor,
     anchorComposerTop: anchorTopValid
       ? welcome!.anchorComposerTop!

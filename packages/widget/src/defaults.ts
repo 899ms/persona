@@ -1,6 +1,8 @@
 import type { AgentWidgetConfig, AgentWidgetLauncherConfig } from "./types";
 import type { DeepPartial, PersonaTheme } from "./types/theme";
 import { deepMerge } from "./utils/deep-merge";
+import { inheritDefaultProvenance } from "./utils/defaults-provenance";
+import { inheritPanelAliasProvenance } from "./utils/panel-config";
 import {
   DEFAULT_TOOLTIP_DELAY_MS,
   DEFAULT_TOOLTIP_SKIP_DELAY_MS,
@@ -16,11 +18,32 @@ export const DEFAULT_FLOATING_LAUNCHER_WIDTH = "min(440px, calc(100vw - 24px))";
 /** Max width cap paired with {@link DEFAULT_FLOATING_LAUNCHER_WIDTH} for theme defaults. */
 export const DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH = "440px";
 
+/** Canonical header avatar box size, shared by the initial render and updates. */
+export const DEFAULT_HEADER_ICON_SIZE = "40px";
+
 /**
  * Canonical composer placeholder. The low-level builders fall back to this so
  * they cannot drift from `DEFAULT_WIDGET_CONFIG.copy.inputPlaceholder`.
  */
 export const DEFAULT_INPUT_PLACEHOLDER = "How can I help...";
+
+/** Shared by config resolution and standalone transcript component builders. */
+export const DEFAULT_TOOL_CALL_DISPLAY = {
+  collapsedMode: "tool-call",
+  activePreview: false,
+  grouped: false,
+  groupedMode: "stack",
+  previewMaxLines: 3,
+  expandable: true,
+  loadingAnimation: "none",
+} satisfies NonNullable<NonNullable<AgentWidgetConfig["features"]>["toolCallDisplay"]>;
+
+export const DEFAULT_REASONING_DISPLAY = {
+  activePreview: false,
+  previewMaxLines: 3,
+  expandable: true,
+  loadingAnimation: "none",
+} satisfies NonNullable<NonNullable<AgentWidgetConfig["features"]>["reasoningDisplay"]>;
 
 export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
   enabled: true,
@@ -40,7 +63,7 @@ export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
   autoExpand: false,
   callToActionIconHidden: false,
   agentIconSize: "40px",
-  headerIconSize: "40px",
+  headerIconSize: DEFAULT_HEADER_ICON_SIZE,
   // closeButtonSize / clearChat.size omitted so theme.components.header.controlSize
   // sizes the header controls; setting either here would pin them past the token.
   // Zero out browser-default <button> padding so the icon gets the full
@@ -78,7 +101,7 @@ export const DEFAULT_LAUNCHER_CONFIG: AgentWidgetLauncherConfig = {
  * Default widget configuration
  * Single source of truth for all default values
  */
-export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
+export const DEFAULTS_BASE: Partial<AgentWidgetConfig> = {
   apiUrl: "https://api.runtype.com/api/chat/dispatch",
   // Client token mode defaults (optional, only used when clientToken is set)
   clientToken: undefined,
@@ -155,21 +178,8 @@ export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
       // default so the default UX keeps the affordance.)
       showActivityWhilePinned: true,
     },
-    toolCallDisplay: {
-      collapsedMode: "tool-call",
-      activePreview: false,
-      grouped: false,
-      groupedMode: "stack",
-      previewMaxLines: 3,
-      expandable: true,
-      loadingAnimation: "none",
-    },
-    reasoningDisplay: {
-      activePreview: false,
-      previewMaxLines: 3,
-      expandable: true,
-      loadingAnimation: "none",
-    },
+    toolCallDisplay: DEFAULT_TOOL_CALL_DISPLAY,
+    reasoningDisplay: DEFAULT_REASONING_DISPLAY,
     streamAnimation: {
       type: "none",
       placeholder: "none",
@@ -246,6 +256,49 @@ export const DEFAULT_WIDGET_CONFIG: Partial<AgentWidgetConfig> = {
   debug: false,
 };
 
+/** Version-specific defaults, selected by the staged V5 opt-in. */
+export const DEFAULTS_V4: Partial<AgentWidgetConfig> = {};
+export const DEFAULT_LAUNCHER_V5: Partial<AgentWidgetLauncherConfig> = {
+  variant: "circle",
+  width: "min(400px, calc(100vw - 24px))",
+  headerIconSize: "20px",
+};
+export const DEFAULTS_V5: Partial<AgentWidgetConfig> = {
+  launcher: DEFAULT_LAUNCHER_V5,
+  features: {
+    toolCallDisplay: { variant: "row", iconVisibility: "active", autoExpand: false, grouped: true, groupedMode: "collapsible", loadingAnimation: "shimmer" },
+    reasoningDisplay: { variant: "row", iconVisibility: "active", autoExpand: false, loadingAnimation: "shimmer" },
+  },
+  composer: { layout: "single-row", placement: "overlay" },
+  sendButton: { iconName: "arrow-up" },
+  statusIndicator: { mode: "transient" },
+  layout: {
+    contentMaxWidth: "768px",
+    topFade: true,
+    header: { showSubtitle: false },
+    messages: { assistant: { width: "full" } },
+  },
+};
+
+export type DefaultsVersion = "v4" | "v5";
+
+/** Shared by config, token, theme, and editor resolution. Only true opts in. */
+export function resolveDefaultsVersion(
+  config?: Pick<AgentWidgetConfig, "future">
+): DefaultsVersion {
+  return config?.future?.v5Defaults === true ? "v5" : "v4";
+}
+
+export function resolveDefaults(
+  config?: Pick<AgentWidgetConfig, "future">
+): Partial<AgentWidgetConfig> {
+  const overlay = resolveDefaultsVersion(config) === "v5" ? DEFAULTS_V5 : DEFAULTS_V4;
+  return deepMerge(DEFAULTS_BASE, overlay) as Partial<AgentWidgetConfig>;
+}
+
+/** Backward-compatible export of the legacy widget defaults. */
+export const DEFAULT_WIDGET_CONFIG = resolveDefaults();
+
 function mergeThemePartials(
   base: DeepPartial<PersonaTheme> | undefined,
   override: DeepPartial<PersonaTheme> | undefined
@@ -266,57 +319,62 @@ function mergeThemePartials(
 export function mergeWithDefaults(
   config?: Partial<AgentWidgetConfig>
 ): Partial<AgentWidgetConfig> {
-  if (!config) return DEFAULT_WIDGET_CONFIG;
+  const defaults = resolveDefaults(config);
+  if (!config) return inheritDefaultProvenance(inheritPanelAliasProvenance(defaults), undefined, DEFAULTS_V5);
 
-  return {
-    ...DEFAULT_WIDGET_CONFIG,
+  return inheritDefaultProvenance(inheritPanelAliasProvenance({
+    ...defaults,
     ...config,
-    theme: mergeThemePartials(DEFAULT_WIDGET_CONFIG.theme, config.theme),
-    darkTheme: mergeThemePartials(DEFAULT_WIDGET_CONFIG.darkTheme, config.darkTheme),
+    theme: mergeThemePartials(defaults.theme, config.theme),
+    darkTheme: mergeThemePartials(defaults.darkTheme, config.darkTheme),
     launcher: {
-      ...DEFAULT_WIDGET_CONFIG.launcher,
+      ...defaults.launcher,
       ...config.launcher,
       dock: {
-        ...DEFAULT_WIDGET_CONFIG.launcher?.dock,
+        ...defaults.launcher?.dock,
         ...config.launcher?.dock,
       },
       clearChat: {
-        ...DEFAULT_WIDGET_CONFIG.launcher?.clearChat,
+        ...defaults.launcher?.clearChat,
         ...config.launcher?.clearChat,
       },
     },
+    ...((defaults.composer || config.composer) ? { composer: {
+      ...defaults.composer,
+      ...config.composer,
+    } } : {}),
     tooltip: {
-      ...DEFAULT_WIDGET_CONFIG.tooltip,
+      ...defaults.tooltip,
       ...config.tooltip,
     },
     copy: {
-      ...DEFAULT_WIDGET_CONFIG.copy,
+      ...defaults.copy,
       ...config.copy,
     },
     sendButton: {
-      ...DEFAULT_WIDGET_CONFIG.sendButton,
+      ...defaults.sendButton,
       ...config.sendButton,
     },
     statusIndicator: {
-      ...DEFAULT_WIDGET_CONFIG.statusIndicator,
+      ...defaults.statusIndicator,
       ...config.statusIndicator,
     },
     voiceRecognition: {
-      ...DEFAULT_WIDGET_CONFIG.voiceRecognition,
+      ...defaults.voiceRecognition,
       ...config.voiceRecognition,
     },
     features: (() => {
-      const da = DEFAULT_WIDGET_CONFIG.features?.artifacts;
+      const da = defaults.features?.artifacts;
       const ca = config.features?.artifacts;
-      const dsb = DEFAULT_WIDGET_CONFIG.features?.scrollToBottom;
+      const dsb = defaults.features?.scrollToBottom;
       const csb = config.features?.scrollToBottom;
-      const dsc = DEFAULT_WIDGET_CONFIG.features?.scrollBehavior;
+      const dsc = defaults.features?.scrollBehavior;
       const csc = config.features?.scrollBehavior;
-      const dsa = DEFAULT_WIDGET_CONFIG.features?.streamAnimation;
+      const dsa = defaults.features?.streamAnimation;
       const csa = config.features?.streamAnimation;
-      const dau = DEFAULT_WIDGET_CONFIG.features?.askUserQuestion;
+      const dau = defaults.features?.askUserQuestion;
       const cau = config.features?.askUserQuestion;
-      const dh = DEFAULT_WIDGET_CONFIG.features?.history;
+      const dh = defaults.features?.history;
       const ch = config.features?.history;
       const mergedArtifacts =
         da === undefined && ca === undefined
@@ -373,8 +431,16 @@ export function mergeWithDefaults(
               },
             };
       return {
-        ...DEFAULT_WIDGET_CONFIG.features,
+        ...defaults.features,
         ...config.features,
+        toolCallDisplay: {
+          ...defaults.features?.toolCallDisplay,
+          ...config.features?.toolCallDisplay,
+        },
+        reasoningDisplay: {
+          ...defaults.features?.reasoningDisplay,
+          ...config.features?.reasoningDisplay,
+        },
         ...(mergedScrollToBottom !== undefined ? { scrollToBottom: mergedScrollToBottom } : {}),
         ...(mergedScrollBehavior !== undefined ? { scrollBehavior: mergedScrollBehavior } : {}),
         ...(mergedArtifacts !== undefined ? { artifacts: mergedArtifacts } : {}),
@@ -383,46 +449,59 @@ export function mergeWithDefaults(
         ...(mergedHistory !== undefined ? { history: mergedHistory } : {}),
       };
     })(),
-    suggestionChips: config.suggestionChips ?? DEFAULT_WIDGET_CONFIG.suggestionChips,
+    suggestionChips: config.suggestionChips ?? defaults.suggestionChips,
     suggestionChipsConfig: {
-      ...DEFAULT_WIDGET_CONFIG.suggestionChipsConfig,
+      ...defaults.suggestionChipsConfig,
       ...config.suggestionChipsConfig,
     },
     layout: {
-      ...DEFAULT_WIDGET_CONFIG.layout,
+      ...defaults.layout,
       ...config.layout,
       header: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.header,
+        ...defaults.layout?.header,
         ...config.layout?.header,
       },
       messages: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.messages,
+        ...defaults.layout?.messages,
         ...config.layout?.messages,
+        ...((defaults.layout?.messages?.user || config.layout?.messages?.user) ? {
+          user: {
+            ...defaults.layout?.messages?.user,
+            ...config.layout?.messages?.user,
+          },
+        } : {}),
+        ...((defaults.layout?.messages?.assistant || config.layout?.messages?.assistant) ? {
+          assistant: {
+            ...defaults.layout?.messages?.assistant,
+            ...config.layout?.messages?.assistant,
+          },
+        } : {}),
         avatar: {
-          ...DEFAULT_WIDGET_CONFIG.layout?.messages?.avatar,
+          ...defaults.layout?.messages?.avatar,
           ...config.layout?.messages?.avatar,
         },
         timestamp: {
-          ...DEFAULT_WIDGET_CONFIG.layout?.messages?.timestamp,
+          ...defaults.layout?.messages?.timestamp,
           ...config.layout?.messages?.timestamp,
         },
       },
       slots: {
-        ...DEFAULT_WIDGET_CONFIG.layout?.slots,
+        ...defaults.layout?.slots,
         ...config.layout?.slots,
       },
     },
     markdown: {
-      ...DEFAULT_WIDGET_CONFIG.markdown,
+      ...defaults.markdown,
       ...config.markdown,
       options: {
-        ...DEFAULT_WIDGET_CONFIG.markdown?.options,
+        ...defaults.markdown?.options,
         ...config.markdown?.options,
       },
     },
     messageActions: {
-      ...DEFAULT_WIDGET_CONFIG.messageActions,
+      ...defaults.messageActions,
       ...config.messageActions,
     },
-  };
+  }, config), config, DEFAULTS_V5);
+
 }

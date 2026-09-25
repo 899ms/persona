@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/src/demo-shared.css" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <title>V5 Preview: Persona</title>
+</head>
+<body>
+  <main class="shell-main v5-preview-page">
+    <header class="title-strip">
+      <h1>V5 preview</h1>
+      <p>A look at what’s coming: quieter activity, simpler tool details, and a refreshed composer. Try the opt-in defaults, then make them your own.</p>
+    </header>
+    <div class="v5-playground">
+      <aside class="v5-controls" aria-label="Preview settings">
+        <div class="v5-eyebrow">EARLY PREVIEW</div>
+        <p>Runs entirely in your browser with sample data. No API key needed. These defaults are still evolving.</p>
+        <label>Scenario<select id="v5-scene">
+          <option value="activity">Reasoning &amp; tools</option>
+          <option value="details">Request &amp; Response</option>
+          <option value="welcome">Welcome &amp; composer</option>
+          <option value="states">Running &amp; failed tools</option>
+          <option value="long">Long conversation &amp; scroll</option>
+        </select></label>
+        <div class="v5-control-pair">
+          <label>Defaults<select id="v5-version"><option value="v5">V5 preview</option><option value="v4">V4 current</option></select></label>
+          <label>Theme<select id="v5-theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+        </div>
+        <label>Activity style<select id="v5-variant"><option value="default">Default</option><option value="row">Compact rows</option><option value="card">Cards</option></select></label>
+        <label>Tool grouping<select id="v5-group"><option value="default">Default</option><option value="separate">Separate calls</option><option value="descriptive">Descriptive labels · custom hook</option></select></label>
+        <label>Tool details<select id="v5-details"><option value="default">Default</option><option value="auto">Auto-expand while streaming</option><option value="summary">Summary only</option></select></label>
+        <label>Status icons<select id="v5-icons"><option value="default">Default</option><option value="always">Always</option><option value="active">Active / attention only</option><option value="never">Never</option></select></label>
+        <label>Top fade<select id="v5-fade"><option value="default">Default</option><option value="on">On</option><option value="off">Off</option></select></label>
+        <div class="v5-actions"><button type="button" id="v5-stream">Run stream</button><button type="button" id="v5-reset">Reset scene</button></div>
+        <p id="v5-status" role="status" aria-live="polite"></p>
+        <details class="v5-config"><summary>Configuration</summary><pre id="v5-config"></pre><p id="v5-hook-note" hidden>Descriptive labels use an explicit tool-name mapping through <code>toolCall.renderGroupedSummary</code>. Unknown tools keep the built-in summary.</p></details>
+      </aside>
+      <section class="v5-preview-pane" aria-label="Live Persona preview">
+        <div class="v5-preview-caption"><span id="v5-caption">V5 defaults</span><span>Interactive · local samples</span></div>
+        <div class="v5-widget-frame"><div id="v5-host"></div></div>
+        <p class="v5-preview-tip">Expand a tool to read its details. Hover or focus a Request / Response block to copy it. You can also type a message for a local sample reply.</p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/src/v5-preview.ts"></script>
+</body>
+</html>

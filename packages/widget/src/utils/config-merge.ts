@@ -1,5 +1,8 @@
-import { mergeWithDefaults } from "../defaults";
+import { DEFAULTS_V5, mergeWithDefaults } from "../defaults";
 import type { AgentWidgetConfig, AgentWidgetConfigPatch } from "../types";
+import { setPanelAliasProvenance, updatePanelAliasProvenance } from "./panel-config";
+
+import { omitInheritedDefaults, setDefaultProvenance, updateDefaultProvenance, versionedDefaultPaths } from "./defaults-provenance";
 
 // Same predicate as utils/deep-merge.ts: plain object, non-null, non-array.
 // Class instances and DOM nodes also pass here, so replace-leaf paths guard the
@@ -63,6 +66,13 @@ export function mergeConfigUpdate(
   previousConfig: AgentWidgetConfig,
   patch: AgentWidgetConfigPatch
 ): AgentWidgetConfig {
-  const merged = mergePatch(previousConfig, patch, "") as Partial<AgentWidgetConfig>;
-  return mergeWithDefaults(merged) as AgentWidgetConfig;
+  const paths = versionedDefaultPaths(DEFAULTS_V5);
+  const explicit = updateDefaultProvenance(previousConfig, patch, paths);
+  const merged = setDefaultProvenance(omitInheritedDefaults(
+    mergePatch(previousConfig, patch, "") as Partial<AgentWidgetConfig>, paths, explicit
+  ), explicit);
+  return setPanelAliasProvenance(
+    mergeWithDefaults(merged) as AgentWidgetConfig,
+    updatePanelAliasProvenance(previousConfig, patch)
+  );
 }

@@ -81,6 +81,22 @@ const injectText = (
 const rowOf = (mount: HTMLElement, id: string) =>
   mount.querySelector<HTMLElement>(`#wrapper-${id}`);
 
+const toggleExpansion = (mount: HTMLElement, id: string, bubbleType: "reasoning" | "tool") => {
+  const header = rowOf(mount, id)?.querySelector<HTMLElement>(
+    `button[data-bubble-type="${bubbleType}"]`
+  );
+  expect(header).not.toBeNull();
+  header?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+};
+
+const expansionStateOf = (mount: HTMLElement, id: string, bubbleType: "reasoning" | "tool") => {
+  const header = rowOf(mount, id)?.querySelector<HTMLElement>(
+    `button[data-bubble-type="${bubbleType}"]`
+  );
+  expect(header).not.toBeNull();
+  return header!.getAttribute("aria-expanded");
+};
+
 describe("features.reasoningDisplay.iconName", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -294,5 +310,81 @@ describe("features.toolCallDisplay.completedVisibility", () => {
       controller.getMessages().find((message) => message.id === "t1")?.toolCall
         ?.status
     ).toEqual("complete");
+  });
+});
+
+describe("expandable transcript state", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal("requestAnimationFrame", (cb: (time: number) => void) => {
+      cb(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    window.scrollTo = vi.fn();
+  });
+
+  afterEach(() => {
+    controllers.splice(0).forEach((controller) => controller.destroy());
+    mounts.splice(0).forEach((mount) => mount.remove());
+    document.body.innerHTML = "";
+    vi.restoreAllMocks();
+  });
+
+  it("keeps tool and reasoning expansion separate for widgets with matching message ids", () => {
+    const first = makeController();
+    injectReasoning(first.controller, "shared-reasoning", "complete");
+    injectToolCall(first.controller, "shared-tool", "complete");
+    toggleExpansion(first.mount, "shared-reasoning", "reasoning");
+    toggleExpansion(first.mount, "shared-tool", "tool");
+    expect(expansionStateOf(first.mount, "shared-reasoning", "reasoning")).toBe("true");
+    expect(expansionStateOf(first.mount, "shared-tool", "tool")).toBe("true");
+
+    // The transcript derives DOM ids from the message id. Keep both widgets
+    // mounted while removing only the first rendered row ids so the fixture
+    // can model equal message ids without duplicate document ids.
+    first.mount.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+
+    const second = makeController();
+    injectReasoning(second.controller, "shared-reasoning", "complete");
+    injectToolCall(second.controller, "shared-tool", "complete");
+
+    expect(expansionStateOf(second.mount, "shared-reasoning", "reasoning")).toBe("false");
+    expect(expansionStateOf(second.mount, "shared-tool", "tool")).toBe("false");
+  });
+
+  it("resets tool and reasoning expansion on clearChat", () => {
+    const { mount, controller } = makeController();
+    injectReasoning(controller, "reasoning-after-clear", "complete");
+    injectToolCall(controller, "tool-after-clear", "complete");
+    toggleExpansion(mount, "reasoning-after-clear", "reasoning");
+    toggleExpansion(mount, "tool-after-clear", "tool");
+    expect(expansionStateOf(mount, "reasoning-after-clear", "reasoning")).toBe("true");
+    expect(expansionStateOf(mount, "tool-after-clear", "tool")).toBe("true");
+
+    controller.clearChat();
+    injectReasoning(controller, "reasoning-after-clear", "complete");
+    injectToolCall(controller, "tool-after-clear", "complete");
+
+    expect(expansionStateOf(mount, "reasoning-after-clear", "reasoning")).toBe("false");
+    expect(expansionStateOf(mount, "tool-after-clear", "tool")).toBe("false");
+  });
+
+  it("releases expansion state when a widget is destroyed", () => {
+    const first = makeController();
+    injectReasoning(first.controller, "reasoning-after-destroy", "complete");
+    injectToolCall(first.controller, "tool-after-destroy", "complete");
+    toggleExpansion(first.mount, "reasoning-after-destroy", "reasoning");
+    toggleExpansion(first.mount, "tool-after-destroy", "tool");
+    expect(expansionStateOf(first.mount, "reasoning-after-destroy", "reasoning")).toBe("true");
+    expect(expansionStateOf(first.mount, "tool-after-destroy", "tool")).toBe("true");
+    first.controller.destroy();
+
+    const second = makeController();
+    injectReasoning(second.controller, "reasoning-after-destroy", "complete");
+    injectToolCall(second.controller, "tool-after-destroy", "complete");
+
+    expect(expansionStateOf(second.mount, "reasoning-after-destroy", "reasoning")).toBe("false");
+    expect(expansionStateOf(second.mount, "tool-after-destroy", "tool")).toBe("false");
   });
 });

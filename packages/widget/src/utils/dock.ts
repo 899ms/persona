@@ -1,4 +1,7 @@
 import type { AgentWidgetConfig, AgentWidgetDockConfig } from "../types";
+import { getPanelAliasProvenance } from "./panel-config";
+import { getActiveTheme } from "./theme";
+import { resolveTokenValue } from "./tokens";
 
 const DEFAULT_DOCK_CONFIG: Required<AgentWidgetDockConfig> = {
   side: "right",
@@ -25,9 +28,12 @@ export const resolveDockConfig = (
   config?: AgentWidgetConfig
 ): Required<AgentWidgetDockConfig> => {
   const dock = config?.launcher?.dock;
+  const width = getPanelAliasProvenance(config).dockWidth
+    ? dock?.width
+    : resolveTokenValue(getActiveTheme(config), "components.panel.width");
   return {
     side: dock?.side ?? DEFAULT_DOCK_CONFIG.side,
-    width: dock?.width ?? DEFAULT_DOCK_CONFIG.width,
+    width: width ?? DEFAULT_DOCK_CONFIG.width,
     animate: dock?.animate ?? DEFAULT_DOCK_CONFIG.animate,
     reveal: dock?.reveal ?? DEFAULT_DOCK_CONFIG.reveal,
     maxHeight: dock?.maxHeight ?? DEFAULT_DOCK_CONFIG.maxHeight,

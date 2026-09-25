@@ -8,7 +8,6 @@
  * external subpath.
  */
 export {
-  approvalDetailsExpansionState,
   createApprovalBubble,
   createBuiltInApprovalPlugin,
   humanizeToolName,

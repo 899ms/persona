@@ -12,18 +12,19 @@ import type { ApprovalUiDeps } from "./components/approval-deps";
  * `history-view-loader.ts` for the full rationale).
  */
 export type ApprovalUiModule = {
-  approvalDetailsExpansionState: Map<string, boolean>;
   createApprovalBubble: (
     message: AgentWidgetMessage,
-    config?: AgentWidgetConfig
+    config?: AgentWidgetConfig,
+    expansionState?: Map<string, boolean>
   ) => HTMLElement;
   updateApprovalDetailsUI: (
     messageId: string,
     bubble: HTMLElement,
-    config?: AgentWidgetConfig
+    config?: AgentWidgetConfig,
+    expansionState?: Map<string, boolean>
   ) => void;
   humanizeToolName: (toolName: string) => string;
-  createBuiltInApprovalPlugin: () => {
+  createBuiltInApprovalPlugin: (expansionState?: Map<string, boolean>) => {
     plugin: AgentWidgetPlugin;
     teardown: () => void;
   };

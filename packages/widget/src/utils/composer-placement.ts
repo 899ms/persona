@@ -4,9 +4,8 @@ export const DEFAULT_ANCHOR_COMPOSER_TOP = "44%";
 export const DEFAULT_COMPOSER_GAP = "24px";
 
 /**
- * Resolver-owned default, not `defaults.ts`: `mergeWithDefaults` materializes
- * anything declared there (see `welcome.ts` header). Composer-bar mode owns
- * its own geometry and always resolves `"block"`.
+ * V4 falls back to block; mergeWithDefaults supplies V5 overlay placement.
+ * Composer-bar mode owns its own geometry and always resolves `"block"`.
  */
 export const resolveComposerPlacement = (
   config: AgentWidgetConfig | undefined,

@@ -1,0 +1,29 @@
+.v5-preview-page { max-width: 1440px; }
+.v5-playground { display:grid; grid-template-columns:280px minmax(0,1fr); gap:28px; align-items:start; margin-top:24px; }
+.v5-controls { display:flex; flex-direction:column; gap:14px; }
+.v5-controls p,.v5-preview-tip { font-size:13px; line-height:1.6; color:var(--muted); margin:0; }
+.v5-eyebrow { font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--muted); }
+.v5-controls label { display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:500; }
+.v5-controls select,.v5-actions button { font:inherit; color:inherit; background:transparent; border:1px solid var(--border,#d4d4d8); border-radius:8px; padding:9px 10px; min-height:38px; width:100%; }
+.v5-controls select { background:var(--surface,#fff); }
+.v5-controls select:focus-visible,.v5-actions button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.v5-control-pair,.v5-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.v5-actions button { cursor:pointer; font-size:12px; }
+.v5-actions button:first-child { background:#202024; color:white; border-color:#202024; }
+.v5-actions button:disabled { opacity:.5; cursor:wait; }
+.v5-preview-pane { min-width:0; }
+.v5-preview-caption { display:flex; justify-content:space-between; gap:12px; font-size:12px; color:var(--muted); margin-bottom:12px; }
+.v5-widget-frame { height:clamp(480px,72dvh,800px); min-width:0; border:1px solid var(--border,#d4d4d8); border-radius:16px; overflow:hidden; }
+.v5-preview-tip { margin-top:12px; }
+.v5-config { font-size:12px; }
+.v5-config summary { cursor:pointer; padding:8px 0; }
+.v5-config pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; line-height:1.6; max-height:320px; overflow:auto; }
+@media(max-width:800px) {
+  .v5-playground { grid-template-columns:minmax(0,1fr); gap:22px; }
+  .v5-controls { display:grid; grid-template-columns:1fr 1fr; }
+  .v5-controls > p,.v5-eyebrow,.v5-config,.v5-actions { grid-column:1/-1; }
+  .v5-control-pair { grid-column:1/-1; }
+  .v5-widget-frame { height:640px; max-height:85dvh; }
+}
+
+#v5-host { height:100%; min-height:0; }

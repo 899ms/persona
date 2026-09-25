@@ -359,6 +359,20 @@ describe("createStandardBubble: components.message geometry tokens", () => {
     });
   });
 
+  it.each([false, true])("consumes selected default geometry with v5Defaults=%s", (v5Defaults) => {
+    for (const role of ["user", "assistant"] as const) {
+      const bubble = createStandardBubble(
+        makeMessage({ id: `default-${role}`, role, content: "Hi" }),
+        ({ text }) => text, undefined, undefined, undefined,
+        { widgetConfig: { future: { v5Defaults } } as AgentWidgetConfig }
+      );
+      expect(bubble.style.padding).toBe(v5Defaults
+        ? `var(--persona-message-${role}-padding, 0.75rem 1.25rem)` : "");
+      expect(bubble.style.lineHeight).toBe(v5Defaults
+        ? `var(--persona-message-${role}-line-height, 1.75)` : "");
+    }
+  });
+
   it("routes each configured property through its role token with the bubble preset as fallback", () => {
     const bubble = createStandardBubble(
       makeMessage({ id: "geo-user", role: "user", content: "Hi" }),
@@ -895,6 +909,14 @@ describe("createStandardBubble: timestamp position", () => {
 describe("createMessageActions: chromeless action buttons", () => {
   const actionButtons = (row: HTMLElement) =>
     Array.from(row.querySelectorAll<HTMLButtonElement>("button[data-action]"));
+
+  it("keeps voting controls hidden unless explicitly enabled", () => {
+    const row = createMessageActions(makeMessage({ id: "actions-default-votes" }), {});
+
+    expect(actionButtons(row).map((btn) => btn.getAttribute("data-action"))).toEqual([
+      "copy",
+    ]);
+  });
 
   it("styles every built-in action through the message-action class alone", () => {
     const row = createMessageActions(makeMessage({ id: "actions-builtin" }), {

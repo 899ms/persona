@@ -671,6 +671,7 @@ export default defineConfig({
         Object.entries({
         main: path.resolve(__dirname, 'index.html'),
         advanced: path.resolve(__dirname, 'advanced.html'),
+        'v5-preview': path.resolve(__dirname, 'v5-preview.html'),
         'action-middleware': path.resolve(__dirname, 'action-middleware.html'),
         'dynamic-components': path.resolve(__dirname, 'dynamic-components.html'),
         'dynamic-form-fields': path.resolve(__dirname, 'dynamic-form-fields.html'),

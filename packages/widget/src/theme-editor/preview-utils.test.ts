@@ -16,6 +16,14 @@ describe("theme editor preview demo data", () => {
     expect(config.suggestionChips?.length).toBeGreaterThan(0);
   });
 
+  it("keeps an authored v5 defaults opt-in in the preview config", () => {
+    const config = buildPreviewConfig({
+      config: { future: { v5Defaults: true } },
+    });
+
+    expect(config.future).toEqual({ v5Defaults: true });
+  });
+
   it("seeds rich agent suggestions in the follow-ups scene", () => {
     const config = buildPreviewConfig({ scene: "follow-ups" });
     const messages = config.initialMessages ?? [];

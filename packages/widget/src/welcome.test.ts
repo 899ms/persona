@@ -274,3 +274,26 @@ describe("resolveConversationState", () => {
     expect(resolveConversationState([])).toBe("empty");
   });
 });
+
+describe("V5 welcome layout defaults", () => {
+  it("centers the empty greeting with concise copy and dismisses every variant", () => {
+    for (const variant of ["card", "hero", "none"] as const) {
+      const resolved = resolveWelcomeConfig(config({ future: { v5Defaults: true }, welcome: { variant } }));
+      expect(resolved).toMatchObject({ layout: "centered", align: "center", title: "What can I help with?", subtitle: "", dismiss: "on-first-message", anchor: "bottom" });
+      expect(isWelcomeVisible(resolved, [userMessage])).toBe(false);
+    }
+  });
+
+  it("keeps explicit fields and legacy copy above V5 defaults", () => {
+    const resolved = resolveWelcomeConfig(config({ future: { v5Defaults: true }, copy: { welcomeTitle: "Legacy", welcomeSubtitle: "Scope" }, welcome: { layout: "top", variant: "hero", dismiss: "never", anchor: "bottom", align: "start" } }), true);
+    expect(resolved).toMatchObject({ title: "Legacy", subtitle: "Scope", layout: "top", dismiss: "never", anchor: "bottom", align: "start" });
+  });
+
+  it("makes centered fullscreen geometry available in either default mode", () => {
+    for (const v5Defaults of [false, true]) {
+      const resolved = resolveWelcomeConfig(config({ future: { v5Defaults }, welcome: { layout: "centered" } }), true);
+      expect(resolved.anchor).toBe("center");
+      expect(resolveWelcomeConfig(config({ future: { v5Defaults }, welcome: { layout: "centered", anchor: "bottom" } }), true).anchor).toBe("bottom");
+    }
+  });
+});

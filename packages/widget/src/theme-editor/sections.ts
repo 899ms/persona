@@ -5,11 +5,14 @@ import {
   DEFAULT_FLOATING_LAUNCHER_MAX_WIDTH,
   DEFAULT_FLOATING_LAUNCHER_WIDTH,
   DEFAULT_INPUT_PLACEHOLDER,
+  resolveDefaults,
 } from '../defaults';
 import {
   DEFAULT_PANEL_CANVAS_BACKGROUND,
   DEFAULT_PANEL_INSET,
+  resolveThemeDefaults,
 } from '../utils/tokens';
+import type { AgentWidgetConfig } from '../types';
 import { COLOR_FAMILIES } from './color-utils';
 import {
   ROLE_SURFACES,
@@ -1336,11 +1339,62 @@ export const STYLE_SECTIONS_V2: SectionDef[] = [
 // ALL TABS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export const ALL_TABS: TabDef[] = [
+const ALL_TABS_BASE: TabDef[] = [
   { id: 'style', label: 'Style', sections: STYLE_SECTIONS },
   { id: 'design-system', label: 'Design System', sections: COMPONENTS_SECTIONS },
   { id: 'configure', label: 'Configure', sections: CONFIGURE_SECTIONS },
 ];
+
+const getByPath = (value: unknown, path: string): unknown =>
+  path.split('.').reduce<unknown>((current, key) =>
+    current && typeof current === 'object'
+      ? (current as Record<string, unknown>)[key]
+      : undefined, value);
+
+/**
+ * Resolves editor field metadata from the same versioned config and token
+ * defaults as the widget. The static field value remains the fallback for
+ * presentation-only values (such as intentionally blank optional tokens).
+ */
+export function resolveEditorFieldDefault(
+  field: FieldDef,
+  future?: AgentWidgetConfig['future']
+): unknown {
+  const configDefaults = resolveDefaults({ future });
+  const themeDefaults = resolveThemeDefaults(future);
+  const path = field.path;
+  const themePath = path.startsWith('theme.')
+    ? path.slice('theme.'.length)
+    : path.startsWith('darkTheme.')
+      ? path.slice('darkTheme.'.length)
+      : undefined;
+  const resolved = themePath
+    ? getByPath(themeDefaults, themePath)
+    : getByPath(configDefaults, path);
+  return resolved === undefined ? field.defaultValue : resolved;
+}
+
+/**
+ * Returns editor tabs with default metadata resolved for the selected defaults
+ * version. Callers keep authored values separate; this only drives UI hints.
+ */
+export function getThemeEditorTabs(
+  future?: AgentWidgetConfig['future']
+): TabDef[] {
+  return ALL_TABS_BASE.map((tab) => ({
+    ...tab,
+    sections: tab.sections.map((section) => ({
+      ...section,
+      fields: section.fields.map((field) => ({
+        ...field,
+        defaultValue: resolveEditorFieldDefault(field, future),
+      })),
+    })),
+  }));
+}
+
+/** Legacy editor metadata, resolved through the v4 defaults tree. */
+export const ALL_TABS: TabDef[] = getThemeEditorTabs();
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // HELPERS: light/dark scoping for dual-mode editing

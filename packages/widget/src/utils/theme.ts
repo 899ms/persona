@@ -1,6 +1,8 @@
-import type { DeepPartial, PersonaTheme } from '../types/theme';
+import { CIRCLE_LAUNCHER_TOKENS, resolveLauncherVariant } from "./launcher-variant";
+import type { CreateThemeOptions, DeepPartial, PersonaTheme } from '../types/theme';
 import type { AgentWidgetConfig } from '../types';
-import { createTheme, resolveTokens, themeToCssVariables } from './tokens';
+import { resolveDefaultsVersion } from '../defaults';
+import { createTheme, resolveTokens, themeToCssVariables, DEFAULT_COMPONENTS_V4 } from './tokens';
 import { deepMerge } from './deep-merge';
 
 export type ColorScheme = 'light' | 'dark' | 'auto';
@@ -9,11 +11,32 @@ export interface PersonaWidgetConfig {
   theme?: DeepPartial<PersonaTheme>;
   darkTheme?: DeepPartial<PersonaTheme>;
   colorScheme?: ColorScheme;
+  future?: { v5Defaults?: boolean };
 }
 
 type WidgetConfig = PersonaWidgetConfig | AgentWidgetConfig;
 
-const DARK_PALETTE = {
+const isPanelWidthMode = (config?: WidgetConfig): boolean =>
+  !!config &&
+  "launcher" in config &&
+  (config.launcher?.sidebarMode === true || config.launcher?.mountMode === "docked");
+
+const applyPanelModeWidth = (theme: PersonaTheme, config?: WidgetConfig): PersonaTheme => {
+  if (!config || !isPanelWidthMode(config)) return theme;
+  const lightWidth = config.theme?.components?.panel?.width;
+  const darkWidth = config.darkTheme?.components?.panel?.width;
+  const configuredWidth = getColorScheme(config) === "dark" ? darkWidth ?? lightWidth : lightWidth;
+  if (configuredWidth != null) return theme;
+  return {
+    ...theme,
+    components: {
+      ...theme.components,
+      panel: { ...theme.components.panel, width: resolveDefaultsVersion(config) === "v5" ? "400px" : "420px" },
+    },
+  };
+};
+
+const DARK_PALETTE_BASE = {
   colors: {
     primary: {
       50: '#ffffff',
@@ -113,7 +136,7 @@ const DARK_PALETTE = {
  * The ghost hover wash must invert with the scheme: 5% black is invisible on a
  * near-black surface, so every dark scheme gets a light alpha instead.
  */
-const DARK_COMPONENTS: DeepPartial<PersonaTheme> = {
+const DARK_COMPONENTS_BASE: DeepPartial<PersonaTheme> = {
   components: {
     button: {
       ghost: {
@@ -160,6 +183,79 @@ const DARK_COMPONENTS: DeepPartial<PersonaTheme> = {
   },
 };
 
+// V4 stays frozen; V5 provides the dark neutral ramp and semantic roles.
+export const DARK_PALETTE_V4 = DARK_PALETTE_BASE;
+export const DARK_PALETTE_V5 = {
+  ...DARK_PALETTE_V4,
+  colors: {
+    ...DARK_PALETTE_V4.colors,
+    primary: {
+      50: '#0f0f10', 100: '#27272a', 200: '#3f3f46', 300: '#52525b',
+      400: '#71717a', 500: '#f4f4f5', 600: '#e4e4e7', 700: '#d4d4d8',
+      800: '#a1a1aa', 900: '#fafafa', 950: '#ffffff',
+    },
+    gray: {
+      50: '#1a1a1b', 100: '#27272a', 200: '#2a2a2d', 300: '#52525b',
+      400: '#71717a', 500: '#a1a1aa', 600: '#b4b4bd', 700: '#d4d4d8',
+      800: '#e4e4e7', 900: '#f4f4f5', 950: '#fafafa',
+    },
+  },
+};
+export const DARK_COMPONENTS_V4 = DARK_COMPONENTS_BASE;
+export const DARK_COMPONENTS_V5: DeepPartial<PersonaTheme> = {
+  semantic: {
+    colors: {
+      primary: 'palette.colors.primary.500',
+      accent: 'palette.colors.primary.600',
+      background: '#0f0f10',
+      surface: 'palette.colors.gray.50',
+      container: '#1c1c20',
+      text: 'palette.colors.gray.900',
+      textMuted: 'palette.colors.gray.500',
+      textInverse: '#0f0f10',
+      border: 'palette.colors.gray.200',
+      divider: 'palette.colors.gray.200',
+      interactive: {
+        default: 'palette.colors.primary.600', hover: 'palette.colors.primary.700',
+        focus: 'palette.colors.primary.600', active: 'palette.colors.primary.600',
+      },
+    },
+  },
+  components: {
+    ...DARK_COMPONENTS_BASE.components,
+    button: {
+      ...DARK_COMPONENTS_BASE.components?.button,
+      primary: { background: 'semantic.colors.primary', foreground: 'palette.colors.primary.50' },
+    },
+    markdown: {
+      inlineCode: { background: 'palette.colors.gray.100', foreground: 'semantic.colors.text' },
+      link: { foreground: 'semantic.colors.accent' },
+      codeBlock: {
+        background: 'semantic.colors.container', borderColor: 'semantic.colors.border',
+        textColor: 'semantic.colors.text',
+      },
+      table: { headerBackground: 'palette.colors.gray.100', borderColor: 'semantic.colors.border' },
+      blockquote: {
+        background: 'semantic.colors.container', borderColor: 'palette.colors.gray.300',
+        textColor: 'semantic.colors.textMuted',
+      },
+    },
+    eventStream: {
+      ...DARK_COMPONENTS_BASE.components?.eventStream,
+      badge: {
+        ...DARK_COMPONENTS_BASE.components?.eventStream?.badge,
+        step: { background: 'palette.colors.gray.100', foreground: 'palette.colors.gray.700' },
+        default: { background: 'palette.colors.gray.100', foreground: 'palette.colors.gray.700' },
+      },
+    },
+  },
+};
+
+const resolveDarkDefaults = (future?: { v5Defaults?: boolean }) =>
+  resolveDefaultsVersion({ future }) === 'v5'
+    ? { palette: DARK_PALETTE_V5, components: DARK_COMPONENTS_V5 }
+    : { palette: DARK_PALETTE_V4, components: DARK_COMPONENTS_V4 };
+
 /**
  * Normalize theme config for merging; rejects non-objects.
  */
@@ -195,11 +291,17 @@ export const getColorScheme = (config?: WidgetConfig): 'light' | 'dark' => {
   return getColorSchemeFromConfig(config);
 };
 
-export const createLightTheme = (userConfig?: DeepPartial<PersonaTheme>): PersonaTheme => {
-  return createTheme(userConfig);
+export const createLightTheme = (
+  userConfig?: DeepPartial<PersonaTheme>,
+  options: Pick<CreateThemeOptions, 'future'> = {}
+): PersonaTheme => {
+  return createTheme(userConfig, options);
 };
 
-export const createDarkTheme = (userConfig?: DeepPartial<PersonaTheme>): PersonaTheme => {
+export const createDarkTheme = (
+  userConfig?: DeepPartial<PersonaTheme>,
+  options: Pick<CreateThemeOptions, 'future'> = {}
+): PersonaTheme => {
   // createTheme() already merges every palette sub-object (radius, typography,
   // shadows, …) over the defaults, so only the dark color scales need to be
   // layered UNDER the user's colors here. Spreading a pre-built default
@@ -209,8 +311,9 @@ export const createDarkTheme = (userConfig?: DeepPartial<PersonaTheme>): Persona
   // DARK_COMPONENTS goes underneath by deep merge, not spread: a shallow
   // spread of `components` would drop the dark ghost hover the moment a host
   // set any unrelated component token.
+  const darkDefaults = resolveDarkDefaults(options.future);
   const config = (deepMerge(
-    DARK_COMPONENTS as Record<string, unknown>,
+    darkDefaults.components as Record<string, unknown>,
     (userConfig ?? {}) as Record<string, unknown>
   ) ?? {}) as DeepPartial<PersonaTheme>;
 
@@ -219,31 +322,40 @@ export const createDarkTheme = (userConfig?: DeepPartial<PersonaTheme>): Persona
       ...config,
       palette: {
         ...config.palette,
-        colors: {
-          ...DARK_PALETTE.colors,
-          ...config.palette?.colors,
-        },
+        // Preserve every dark stop when a host overrides just one shade.
+        // Keep V4's historical scale replacement behavior unchanged.
+        colors: resolveDefaultsVersion(options) === 'v5'
+          ? deepMerge(darkDefaults.palette.colors, config.palette?.colors) as PersonaTheme['palette']['colors']
+          : { ...darkDefaults.palette.colors, ...config.palette?.colors },
       },
     },
-    { validate: false }
+    { validate: false, future: options.future }
   );
 };
 
 export const getActiveTheme = (config?: WidgetConfig): PersonaTheme => {
   const scheme = getColorScheme(config);
-  const lightThemeConfig = normalizeThemeConfig(config?.theme);
+  const explicitTheme = normalizeThemeConfig(config?.theme);
+  // Variant defaults sit under explicit theme tokens in either defaults state.
+  const launcherDefaults = resolveLauncherVariant(config) === 'circle'
+    ? CIRCLE_LAUNCHER_TOKENS
+    : { ...DEFAULT_COMPONENTS_V4.launcher, ...(config?.future?.v5Defaults ? { offset: '1.5rem' } : {}) };
+  const lightThemeConfig = deepMerge(
+    { components: { launcher: launcherDefaults } }, explicitTheme
+  ) as DeepPartial<PersonaTheme>;
   const darkThemeConfig = normalizeThemeConfig(config?.darkTheme);
 
   if (scheme === 'dark') {
-    return createDarkTheme(
+    return applyPanelModeWidth(createDarkTheme(
       deepMerge(
         (lightThemeConfig ?? {}) as Record<string, unknown>,
         (darkThemeConfig ?? {}) as Record<string, unknown>
-      ) as DeepPartial<PersonaTheme>
-    );
+      ) as DeepPartial<PersonaTheme>,
+      { future: config?.future }
+    ), config);
   }
 
-  return createLightTheme(lightThemeConfig);
+  return applyPanelModeWidth(createLightTheme(lightThemeConfig, { future: config?.future }), config);
 };
 
 export const getCssVariables = (theme: PersonaTheme): Record<string, string> => {
@@ -267,6 +379,7 @@ export const applyThemeVariables = (
   // host pins colorScheme. Re-applied on every theme application, so live
   // config updates and theme-observer callbacks keep it current.
   element.setAttribute("data-persona-color-scheme", getColorScheme(config));
+  element.setAttribute("data-persona-defaults", resolveDefaultsVersion(config));
 };
 
 export const createThemeObserver = (

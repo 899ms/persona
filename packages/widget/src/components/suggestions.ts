@@ -97,19 +97,6 @@ export const normalizeSuggestion = (
   };
 };
 
-const fontFamilyValue = (
-  family: "sans-serif" | "serif" | "mono"
-): string => {
-  switch (family) {
-    case "serif":
-      return 'Georgia, "Times New Roman", Times, serif';
-    case "mono":
-      return '"Courier New", Courier, "Lucida Console", Monaco, monospace';
-    default:
-      return '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
-  }
-};
-
 // Module-level, keyed on the widget config: one widget owns several suggestion
 // managers, so a per-instance flag hints once per surface instead of once.
 const hintedOverflowVariant = new WeakSet<AgentWidgetConfig>();
@@ -264,9 +251,6 @@ export const createSuggestionElement = (
     // Legacy `suggestionChipsConfig` compat is chip-only: its inline
     // styles would otherwise override the card/list padding tokens.
     if (variant === "chip") {
-      if (chipsConfig?.fontFamily) {
-        button.style.fontFamily = fontFamilyValue(chipsConfig.fontFamily);
-      }
       if (chipsConfig?.fontWeight) {
         button.style.fontWeight = chipsConfig.fontWeight;
       }

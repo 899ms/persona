@@ -2254,6 +2254,14 @@ export type AgentWidgetToolCallLoadingAnimation =
   | "rainbow";
 
 export type AgentWidgetToolCallDisplayFeature = {
+  /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
+  variant?: "card" | "row";
+  /** Row status icons: always, active/attention-needed only, or never. V5 defaults to active; V4 to always. */
+  iconVisibility?: "always" | "active" | "never";
+  /** Row variant: open when the first content chunk arrives. Default false in V5; true in V4. */
+  autoExpand?: boolean;
+  /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */
+  autoCollapseDelay?: number | false;
   /**
    * Controls what collapsed tool call rows show in their header/summary area.
    * @default "tool-call"
@@ -2284,9 +2292,10 @@ export type AgentWidgetToolCallDisplayFeature = {
    * Controls how a grouped tool sequence is rendered.
    * - `"stack"`: show the group summary and each child tool row.
    * - `"summary"`: show one consolidated summary row only.
+   * - `"collapsible"`: expandable activity group (V5 default).
    * @default "stack"
    */
-  groupedMode?: "stack" | "summary";
+  groupedMode?: "stack" | "summary" | "collapsible";
   /**
    * What happens to a tool call row once it completes.
    *
@@ -2319,6 +2328,14 @@ export type AgentWidgetToolCallDisplayFeature = {
 export type AgentWidgetToolCallCompletedVisibility = "kept" | "removed";
 
 export type AgentWidgetReasoningDisplayFeature = {
+  /** Activity chrome. Defaults to card in V4 and row with future.v5Defaults. */
+  variant?: "card" | "row";
+  /** Row status icons: always, active/attention-needed only, or never. V5 defaults to active; V4 to always. */
+  iconVisibility?: "always" | "active" | "never";
+  /** Row variant: open when the first content chunk arrives. Default false in V5; true in V4. */
+  autoExpand?: boolean;
+  /** Row variant: collapse once after completion, in ms; false disables. Default 1000. */
+  autoCollapseDelay?: number | false;
   /**
    * When true, active collapsed reasoning rows can render a lightweight preview block.
    * @default false
@@ -3483,7 +3500,7 @@ export type EventStreamConfig = {
   /**
    * Fields to extract from event payloads for description text.
    * The first matching field value is displayed after the badge.
-   * @default ["flowName", "stepName", "name", "tool", "toolName"]
+   * @default ["flowName", "stepName", "reasoningText", "text", "name", "tool", "toolName"]
    */
   descriptionFields?: string[];
   /**
@@ -3702,6 +3719,8 @@ export type AgentWidgetComposerBarPeekConfig = {
 };
 
 export type AgentWidgetLauncherConfig = {
+  /** Collapsed launcher shape. V4 defaults to pill; V5 defaults to circle. */
+  variant?: "pill" | "circle";
   enabled?: boolean;
   title?: string;
   subtitle?: string;
@@ -4496,9 +4515,9 @@ export type AgentWidgetComposerConfig = {
   /**
    * Where the composer footer sits relative to the transcript.
    *
-   * - `"block"` (default): the footer is a flex sibling below the scroll body.
+   * - `"block"` (V4 default): the footer is a flex sibling below the scroll body.
    *   Nothing scrolls behind it.
-   * - `"overlay"`: the footer is absolutely overlaid on the scroll body, so the
+   * - `"overlay"` (V5 default): the footer is absolutely overlaid on the scroll body, so the
    *   transcript scrolls behind it (the chatgpt.com / claude.ai model, where the
    *   composer is sticky inside the scroller). The widget reserves the footer's
    *   live height as bottom padding on the scroll body and on a plugin welcome
@@ -4510,7 +4529,7 @@ export type AgentWidgetComposerConfig = {
    * included) and `theme.components.input.backdropFilter`.
    *
    * Ignored in composer-bar mount mode, which owns its own geometry.
-   * @default "block"
+   * @default "block" (V4), "overlay" (V5)
    */
   placement?: ComposerPlacement;
   /**
@@ -4524,8 +4543,9 @@ export type AgentWidgetComposerConfig = {
    *
    * `"single-row"` describes the IDLE composer only. It composes with the
    * compact state, so a wrapped draft, chips, attachment previews, a quote, a
-   * pending card, or live dictation all fall back to the stacked card, exactly
-   * as `data-persona-composer-compact` does today.
+   * pending card all fall back to the stacked card, exactly
+   * as `data-persona-composer-compact` does today. Recording alone does not
+   * expand the composer; dictated text expands it when it wraps.
    *
    * Ignored in composer-bar mount mode, whose pill is already one row.
    * @default "stacked"
@@ -4572,7 +4592,14 @@ export type AgentWidgetClearChatConfig = {
 };
 
 export type AgentWidgetStatusIndicatorConfig = {
+  /** Show the indicator. Explicit false also hides transient connection states. */
   visible?: boolean;
+  /**
+   * "always" shows status beneath the composer; "transient" shows connecting,
+   * reconnecting, and error status above it, hiding normal idle/streaming status.
+   * Available in both defaults states. Default: "always" in v4, "transient" in v5.
+   */
+  mode?: "always" | "transient";
   /** Text alignment. Default: 'right'. */
   align?: 'left' | 'center' | 'right';
   idleText?: string;
@@ -5443,7 +5470,8 @@ export type AgentWidgetResolvedSuggestion = {
 
 /** Presentation keys shared by every suggestion surface. */
 export type AgentWidgetSuggestionSurfaceConfig = {
-  /** Item density. Defaults to `card` for starters and `chip` for follow-ups. */
+  /** Item density. V4 starters: card. V5 starters: chip, or card in fullscreen.
+   * Follow-ups default to chip. */
   variant?: AgentWidgetSuggestionVariant;
   /** Default click behavior, overridable per item. Defaults to `send`. */
   behavior?: AgentWidgetSuggestionBehavior;
@@ -5454,7 +5482,7 @@ export type AgentWidgetSuggestionSurfaceConfig = {
    * own stacking.
    */
   overflow?: "scroll" | "wrap";
-  /** Maximum visible items. Defaults to 4. */
+  /** Maximum visible items. Defaults to 4, or 3 for V5 non-fullscreen starters. */
   maxItems?: number;
 };
 
@@ -5518,8 +5546,8 @@ export type AgentWidgetWelcomeVariant = "card" | "hero" | "none";
 
 /**
  * When the welcome surface goes away. `"never"` is the default for `"card"`;
- * `"on-first-message"` is the default for `"hero"` and cannot be overridden
- * there.
+ * `"on-first-message"` is forced for legacy V4 `"hero"`. V5 defaults every
+ * variant to `"on-first-message"`. Explicit layout opts into overridable dismissal.
  */
 export type AgentWidgetWelcomeDismiss = "never" | "on-first-message";
 
@@ -5571,7 +5599,10 @@ export type AgentWidgetWelcomeAlign = "start" | "center";
  * host-set value from a filled-in default.
  */
 export interface AgentWidgetWelcomeConfig {
-  /** Card or hero title. Defaults to "Hello 👋". */
+  /** Vertical placement: V4 defaults to top; V5 to centered. Fullscreen centered
+   * welcomes also raise the empty composer unless `anchor` is explicitly set. */
+  layout?: "top" | "centered";
+  /** Card or hero title. V4: "Hello 👋". V5: "What can I help with?". */
   title?: string;
   /**
    * Small muted line above the title, e.g. a section name. Omitted when unset
@@ -5584,19 +5615,22 @@ export interface AgentWidgetWelcomeConfig {
   icon?: AgentWidgetWelcomeIcon;
   /**
    * Horizontal alignment of the kicker, title, subtitle, and starter
-   * suggestions. Unset follows the variant: `card` starts, `hero` centers.
+   * suggestions. Centered layouts default to center. Otherwise unset follows
+   * the variant: `card` starts, `hero` centers.
    */
   align?: AgentWidgetWelcomeAlign;
   /** @default "card" */
   variant?: AgentWidgetWelcomeVariant;
-  /** @default "never" for `card`, always `"on-first-message"` for `hero`. */
+  /** V4: never for card, forced on-first-message for hero. V5: on-first-message
+   * for all variants; explicit values win. Explicit layout also allows overriding
+   * the legacy hero dismissal in V4. */
   dismiss?: AgentWidgetWelcomeDismiss;
   /**
    * Vertical anchoring of the greeting-plus-composer pair in the EMPTY
    * conversation only. On the first message the pair drops to the bottom
    * (animated; see `data-persona-conversation-state`).
    *
-   * - `"bottom"` (default): the composer stays pinned at the bottom.
+   * - `"bottom"`: the composer stays pinned at the bottom.
    * - `"center"`: greeting and composer float together so the composer's top
    *   edge lands at `anchorComposerTop` of the panel column, and the welcome
    *   surface is end-anchored `composerGap` above it.
@@ -5604,7 +5638,8 @@ export interface AgentWidgetWelcomeConfig {
    * Composes with either `composer.placement`. Ignored in composer-bar mount
    * mode. `renderWelcome` plugin content inherits the anchor: the widget
    * positions the overlay host and reserves the composer zone.
-   * @default "bottom"
+   * Defaults to bottom, except centered fullscreen layouts, which center the
+   * measured greeting/composer group when no anchor override is supplied.
    */
   anchor?: AgentWidgetWelcomeAnchor;
   /**
@@ -6323,6 +6358,9 @@ export type AgentWidgetLayoutConfig = {
    * `launcher.composerBar.contentMaxWidth`)
    */
   contentMaxWidth?: string;
+  /** Fade the transcript's top edge when content is scrolled above it.
+   * Defaults to false in V4 and true with future.v5Defaults. */
+  topFade?: boolean;
 };
 
 // ============================================================================
@@ -6952,6 +6990,15 @@ export type AgentWidgetLoadingIndicatorConfig = {
 };
 
 export type AgentWidgetConfig = {
+  /** Opt in to upcoming major-version defaults without changing explicit settings. */
+  future?: {
+    /**
+     * Use the v5 default styling as it rolls out in 4.x. Every affected setting
+     * remains independently configurable. Explicit options and theme tokens win.
+     * @default false
+     */
+    v5Defaults?: boolean;
+  };
   apiUrl?: string;
   flowId?: string;
   /**
@@ -7840,6 +7887,8 @@ export type AgentWidgetReasoning = {
 };
 
 export type AgentWidgetToolCall = {
+  /** Optional approval state for activity-row status chrome. */
+  approvalStatus?: "pending" | "approved" | "denied" | "timeout";
   id: string;
   name?: string;
   status: "pending" | "running" | "complete";

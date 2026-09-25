@@ -22,7 +22,7 @@
  */
 import { createLauncherSurface } from "./components/launcher";
 import { applyThemeVariables } from "./utils/theme";
-import { DEFAULT_LAUNCHER_CONFIG } from "./defaults";
+import { DEFAULT_LAUNCHER_CONFIG, DEFAULT_LAUNCHER_V5 } from "./defaults";
 import { setIconsExtraLoader } from "./icons-extra-loader";
 import type { AgentWidgetConfig } from "./types";
 
@@ -94,6 +94,7 @@ const mergeCriticalLauncherConfig = (
   ...config,
   launcher: {
     ...DEFAULT_LAUNCHER_CONFIG,
+    ...(config?.future?.v5Defaults === true ? DEFAULT_LAUNCHER_V5 : {}),
     ...config?.launcher,
     dock: {
       ...DEFAULT_LAUNCHER_CONFIG.dock,

@@ -328,8 +328,8 @@ describe("welcome visibility state machine", () => {
 });
 
 describe("welcome greeting bubble", () => {
-  it("renders an assistant-styled bubble above the transcript", () => {
-    const { mount } = makeController({ welcome: { message: "Hi, I'm Ada." } });
+  it.each([false, true])("renders an assistant-styled bubble above the transcript (v5=%s)", (v5Defaults) => {
+    const { mount } = makeController({ future: { v5Defaults }, welcome: { message: "Hi, I'm Ada." } });
     const greeting = greetingHost(mount);
     expect(isVisible(greeting)).toBe(true);
     expect(greeting.textContent).toBe("Hi, I'm Ada.");
@@ -342,7 +342,7 @@ describe("welcome greeting bubble", () => {
     const body = mount.querySelector<HTMLElement>("#persona-scroll-container")!;
     const children = Array.from(body.children);
     const transcript = body.querySelector<HTMLElement>(
-      ":scope > .persona-gap-3"
+      ":scope > .persona-widget-messages"
     )!;
     expect(children.indexOf(greeting)).toBeLessThan(
       children.indexOf(transcript)
@@ -506,5 +506,94 @@ describe("welcome live updates", () => {
     expect(isVisible(welcomeHost(mount))).toBe(false);
     controller.update({ copy: { showWelcomeCard: undefined } });
     expect(isVisible(welcomeHost(mount))).toBe(true);
+  });
+});
+
+describe("centered welcome", () => {
+  it("groups legacy starters in the V5 welcome and restores them after clear", () => {
+    const { mount, controller } = makeController({ future: { v5Defaults: true }, suggestionChips: ["One", "Two", "Three", "Four", "Five"] });
+    const host = welcomeHost(mount);
+    expect(host.getAttribute("data-persona-welcome-layout")).toBe("centered");
+    expect(host.querySelector("h2")?.textContent).toBe("What can I help with?");
+    expect(host.querySelectorAll(".persona-suggestion")).toHaveLength(3);
+    expect(host.querySelector(".persona-suggestions")?.getAttribute("data-variant")).toBe("chip");
+    controller.injectTestMessage({ type: "message", message: assistantMessage() });
+    expect(isVisible(host)).toBe(true);
+    sendUserMessage(controller);
+    expect(isVisible(host)).toBe(false);
+    controller.clearChat();
+    expect(isVisible(host)).toBe(true);
+    expect(host.querySelectorAll(".persona-suggestion")).toHaveLength(3);
+  });
+
+  it("raises fullscreen empty composers and defaults starters to four cards", () => {
+    const { mount } = makeController({ future: { v5Defaults: true }, launcher: { enabled: false, fullHeight: true }, suggestionChips: ["One", "Two", "Three", "Four", "Five"] });
+    expect(mount.getAttribute("data-persona-welcome-anchor")).toBe("center");
+    expect(welcomeHost(mount).querySelectorAll(".persona-suggestion")).toHaveLength(4);
+    expect(welcomeHost(mount).querySelector(".persona-suggestions")?.getAttribute("data-variant")).toBe("card");
+  });
+});
+
+it("updates starter density when the floating panel becomes mobile fullscreen", () => {
+  const originalWidth = window.innerWidth;
+  try {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+    const { mount } = makeController({ future: { v5Defaults: true }, launcher: { enabled: true }, suggestionChips: ["One", "Two", "Three", "Four", "Five"] });
+    expect(welcomeHost(mount).querySelectorAll(".persona-suggestion")).toHaveLength(3);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 500 });
+    window.dispatchEvent(new Event("resize"));
+    expect(mount.getAttribute("data-persona-welcome-anchor")).toBe("center");
+    expect(welcomeHost(mount).querySelectorAll(".persona-suggestion")).toHaveLength(4);
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+    window.dispatchEvent(new Event("resize"));
+    expect(mount.getAttribute("data-persona-welcome-anchor")).toBe("bottom");
+    expect(welcomeHost(mount).querySelectorAll(".persona-suggestion")).toHaveLength(3);
+  } finally {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+  }
+});
+
+describe.each([false, true])("explicit welcome layout (V5 defaults: %s)", (v5Defaults) => {
+  it("makes top override hero centering in empty and active states", () => {
+    const { mount, controller } = makeController({ future: { v5Defaults }, welcome: { layout: "top", variant: "hero", dismiss: "never" } });
+    expect(mount.getAttribute("data-persona-welcome-layout-explicit")).toBe("top");
+    expect(isVisible(welcomeHost(mount))).toBe(true);
+    sendUserMessage(controller);
+    expect(mount.getAttribute("data-persona-welcome-layout-explicit")).toBe("top");
+    expect(isVisible(welcomeHost(mount))).toBe(true);
+  });
+
+  it("centers and resets explicit greeting/starters while honoring overrides", () => {
+    const { mount, controller } = makeController({
+      future: { v5Defaults },
+      welcome: { layout: "centered", title: "Custom", subtitle: "Scope", dismiss: "on-first-message", align: "start", anchor: "bottom" },
+      suggestions: { starters: { items: ["One", "Two", "Three", "Four", "Five"], maxItems: 2, variant: "list", behavior: "fill" } },
+    });
+    expect(welcomeHost(mount).getAttribute("data-persona-welcome-layout")).toBe("centered");
+    expect(welcomeHost(mount).getAttribute("data-persona-welcome-align")).toBe("start");
+    expect(mount.getAttribute("data-persona-welcome-anchor")).toBe("bottom");
+    expect(welcomeHost(mount).querySelector("h2")?.textContent).toBe("Custom");
+    expect(welcomeHost(mount).querySelectorAll(".persona-suggestion")).toHaveLength(2);
+    controller.injectTestMessage({ type: "message", message: assistantMessage() });
+    expect(isVisible(welcomeHost(mount))).toBe(true);
+    sendUserMessage(controller);
+    expect(isVisible(welcomeHost(mount))).toBe(false);
+    controller.clearChat();
+    expect(isVisible(welcomeHost(mount))).toBe(true);
+  });
+
+  it("centers the measured fullscreen group and preserves an explicit percentage", () => {
+    const { mount, controller } = makeController({ future: { v5Defaults }, launcher: { enabled: false, fullHeight: true }, composer: { placement: "overlay" }, welcome: { layout: "centered" } });
+    const footer = mount.querySelector<HTMLElement>(".persona-widget-footer")!;
+    const container = footer.parentElement!;
+    Object.defineProperty(container, "clientHeight", { configurable: true, value: 800 });
+    Object.defineProperty(footer, "offsetHeight", { configurable: true, value: 100 });
+    Object.defineProperty(welcomeHost(mount), "offsetHeight", { configurable: true, value: 200 });
+    window.dispatchEvent(new Event("resize"));
+    // jsdom has no stylesheet geometry: the zero gap/body origin gives
+    // (800 - 200 - 100) / 2 rather than the old 44%-top anchoring.
+    expect(mount.style.getPropertyValue("--persona-composer-lift")).toBe("250px");
+    controller.update({ welcome: { layout: "centered", anchorComposerTop: "40%" } });
+    expect(mount.style.getPropertyValue("--persona-composer-lift")).toBe("380px");
   });
 });

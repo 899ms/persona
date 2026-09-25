@@ -1,14 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { mergeConfigUpdate } from "./config-merge";
-import { mergeWithDefaults } from "../defaults";
+import { DEFAULT_FLOATING_LAUNCHER_WIDTH, mergeWithDefaults } from "../defaults";
+import { getPanelAliasProvenance } from "./panel-config";
 import type { AgentWidgetConfig, StreamAnimationPlugin } from "../types";
 
-// Stored controller config is post-mergeWithDefaults; simulate that here.
-const base = (overrides: Partial<AgentWidgetConfig> = {}): AgentWidgetConfig =>
-  mergeWithDefaults({ apiUrl: "https://api.example.com/chat", ...overrides }) as AgentWidgetConfig;
+describe.each([false, true])("mergeConfigUpdate (v5=%s)", (v5Defaults) => {
+  // Stored controller config is post-mergeWithDefaults.
+  const base = (overrides: Partial<AgentWidgetConfig> = {}): AgentWidgetConfig =>
+    mergeWithDefaults({ apiUrl: "https://api.example.com/chat", future: { v5Defaults }, ...overrides }) as AgentWidgetConfig;
 
-describe("mergeConfigUpdate", () => {
+  it("retains and clears legacy panel-alias provenance across live patches", () => {
+    const initial = base({ launcher: { width: "600px", dock: { width: "520px" } } });
+    expect(getPanelAliasProvenance(initial)).toMatchObject({ launcherWidth: true, dockWidth: true });
+
+    const retained = mergeConfigUpdate(initial, { launcher: { title: "Updated" } });
+    expect(getPanelAliasProvenance(retained)).toMatchObject({ launcherWidth: true, dockWidth: true });
+
+    const cleared = mergeConfigUpdate(retained, { launcher: { width: undefined, dock: { width: undefined } } });
+    expect(getPanelAliasProvenance(cleared)).toMatchObject({ launcherWidth: false, dockWidth: false });
+
+    const parentCleared = mergeConfigUpdate(initial, { launcher: undefined });
+    expect(getPanelAliasProvenance(parentCleared)).toMatchObject({ launcherWidth: false, dockWidth: false });
+
+    const dockParentCleared = mergeConfigUpdate(initial, { launcher: { dock: undefined } });
+    expect(getPanelAliasProvenance(dockParentCleared)).toMatchObject({ launcherWidth: true, dockWidth: false });
+  });
+
+  it("does not treat an explicit undefined width as a legacy alias", () => {
+    const config = mergeWithDefaults({
+      future: { v5Defaults },
+      launcherWidth: "600px",
+      launcher: { width: undefined },
+    }) as AgentWidgetConfig;
+    expect(getPanelAliasProvenance(config)).toMatchObject({
+      launcherWidth: false,
+      legacyLauncherWidth: true,
+    });
+  });
+
+  it("keeps an explicit legacy width even when it equals the materialized default", () => {
+    const config = base({ launcher: { width: DEFAULT_FLOATING_LAUNCHER_WIDTH } });
+    expect(getPanelAliasProvenance(config).launcherWidth).toBe(true);
+  });
+
   it("recursively merges nested plain objects, preserving sibling overrides", () => {
     const prev = base({ launcher: { enabled: false, clearChat: { backgroundColor: "#123456" } } });
     const next = mergeConfigUpdate(prev, { launcher: { title: "After" } });
@@ -302,5 +337,46 @@ describe("mergeConfigUpdate", () => {
     const merged = mergeConfigUpdate(prev, { launcher: { title: "T" } });
     const again = mergeConfigUpdate(merged, merged);
     expect(again).toEqual(merged);
+  });
+});
+
+
+describe("live defaults version changes", () => {
+  const base = (config: Partial<AgentWidgetConfig> = {}) =>
+    mergeWithDefaults({ apiUrl: "/api", ...config }) as AgentWidgetConfig;
+
+  it("moves inherited defaults in both directions and resets a cleared future flag", () => {
+    const v5 = mergeConfigUpdate(base(), { future: { v5Defaults: true } });
+    expect(v5.launcher?.headerIconSize).toBe("20px");
+    expect(v5.layout?.header?.showSubtitle).toBe(false);
+    expect(v5.composer?.layout).toBe("single-row");
+    expect(v5.statusIndicator?.mode).toBe("transient");
+    const v4 = mergeConfigUpdate(v5, { future: undefined });
+    expect(v4.launcher?.headerIconSize).toBe("40px");
+    expect(v4.layout?.header?.showSubtitle).toBe(true);
+    expect(v4.composer?.layout).toBeUndefined();
+    expect(v4.statusIndicator?.mode).toBeUndefined();
+    const v5Again = mergeConfigUpdate(v4, { future: { v5Defaults: true } });
+    expect(v5Again.layout?.messages?.assistant?.width).toBe("full");
+    expect(v5Again.composer?.layout).toBe("single-row");
+  });
+
+  it("retains host choices even when they equal a previous version default", () => {
+    const initial = base({ launcher: { headerIconSize: "40px" }, layout: { header: { showSubtitle: true } } });
+    const v5 = mergeConfigUpdate(initial, { future: { v5Defaults: true } });
+    expect(v5.launcher?.headerIconSize).toBe("40px");
+    expect(v5.layout?.header?.showSubtitle).toBe(true);
+    const reset = mergeConfigUpdate(v5, { launcher: { headerIconSize: undefined }, layout: { header: undefined } });
+    expect(reset.launcher?.headerIconSize).toBe("20px");
+    expect(reset.layout?.header?.showSubtitle).toBe(false);
+    expect(initial.launcher?.headerIconSize).toBe("40px");
+  });
+
+  it("preserves live overrides and normal config spreads across version changes", () => {
+    const edited = mergeConfigUpdate(base(), { composer: { layout: "stacked" }, statusIndicator: { mode: "always" } });
+    const v5 = mergeConfigUpdate({ ...edited }, { future: { v5Defaults: true } });
+    expect(v5.composer?.layout).toBe("stacked");
+    expect(v5.statusIndicator?.mode).toBe("always");
+    expect(v5.launcher?.headerIconSize).toBe("20px");
   });
 });

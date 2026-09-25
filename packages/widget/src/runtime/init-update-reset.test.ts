@@ -78,4 +78,25 @@ describe("handle.update explicit-undefined reset reaches the controller", () => 
 
     handle.destroy();
   });
+
+  it("updates the root defaults-version attribute", () => {
+    window.scrollTo = vi.fn();
+    document.body.innerHTML = `<div id="target"></div>`;
+
+    const handle = initAgentWidget({
+      target: "#target",
+      config: {
+        apiUrl: "https://api.example.com/chat",
+        launcher: { enabled: false },
+        future: { v5Defaults: false },
+      },
+    });
+    const root = () => document.querySelector<HTMLElement>("[data-persona-root]")!;
+
+    expect(root().getAttribute("data-persona-defaults")).toBe("v4");
+    handle.update({ future: { v5Defaults: true } });
+    expect(root().getAttribute("data-persona-defaults")).toBe("v5");
+
+    handle.destroy();
+  });
 });

@@ -1249,6 +1249,24 @@ describe('theme utils', () => {
     expect(el.getAttribute('data-persona-color-scheme')).toBe('dark');
   });
 
+  it.each([{ v5Defaults: false }, { v5Defaults: true }])(
+    'threads future.v5Defaults=%s through active theme resolution and root state',
+    (future) => {
+      const config = {
+        colorScheme: 'dark' as const,
+        future,
+        theme: { palette: { colors: { gray: { 500: '#123456' } } } },
+      };
+      expect(getActiveTheme(config).palette.colors.gray[500]).toBe('#123456');
+
+      const el = document.createElement('div');
+      applyThemeVariables(el, config);
+      expect(el.getAttribute('data-persona-defaults')).toBe(
+        future.v5Defaults ? 'v5' : 'v4'
+      );
+    }
+  );
+
   it('maps components.code.background to --persona-code-bg', () => {
     const theme = createTheme({
       components: { code: { background: '#fafafa' } },
@@ -1307,5 +1325,169 @@ describe('theme utils', () => {
       } as any)
     );
     expect(explicit['--persona-md-code-block-border-radius']).toBe('2px');
+  });
+});
+
+
+describe.each([false, true])('versioned panel mode widths (v5=%s)', (v5Defaults) => {
+  it.each(['docked', 'sidebar'] as const)('uses version defaults and explicit widths in %s', (mode) => {
+    const config = { apiUrl: '/api', future: { v5Defaults }, launcher: mode === 'docked' ? { mountMode: 'docked' as const } : { sidebarMode: true } };
+    expect(getActiveTheme(config).components.panel.width).toBe(v5Defaults ? '400px' : '420px');
+    expect(getActiveTheme({ ...config, theme: { components: { panel: { width: '510px' } } } }).components.panel.width).toBe('510px');
+    expect(getActiveTheme({ ...config, colorScheme: 'dark', darkTheme: { components: { panel: { width: '530px' } } } }).components.panel.width).toBe('530px');
+  });
+});
+
+describe.each([false, true])('versioned dark palette (v5=%s)', (v5Defaults) => {
+  const future = { v5Defaults };
+  const variables = (colorScheme: 'light' | 'dark' | 'auto') =>
+    themeToCssVariables(getActiveTheme({ future, colorScheme }));
+
+  afterEach(() => document.documentElement.classList.remove('dark'));
+
+  it('changes neutral and markdown defaults only in V5', () => {
+    const light = variables('light');
+    const dark = variables('dark');
+    for (const token of [
+      'surface', 'background', 'text', 'border', 'md-inline-code-bg', 'md-inline-code-color',
+      'md-code-block-bg', 'md-table-header-bg', 'md-blockquote-bg', 'md-blockquote-text-color',
+    ]) {
+      expect(dark[`--persona-${token}`], token).toBeDefined();
+      if (v5Defaults) expect(dark[`--persona-${token}`], token).not.toBe(light[`--persona-${token}`]);
+      else expect(dark[`--persona-${token}`], token).toBe(light[`--persona-${token}`]);
+    }
+    if (v5Defaults) {
+      expect(dark['--persona-surface']).toBe('#1a1a1b');
+      expect(dark['--persona-background']).toBe('#0f0f10');
+      expect(dark['--persona-text']).toBe('#f4f4f5');
+      expect(dark['--persona-border']).toBe('#2a2a2d');
+      expect(dark['--persona-message-user-bg']).toBe('#27272a');
+    }
+  });
+
+  it('resolves auto mode through the same versioned dark defaults', () => {
+    expect(variables('auto')).toEqual(variables('light'));
+    document.documentElement.classList.add('dark');
+    expect(variables('auto')).toEqual(variables('dark'));
+  });
+
+  it.each(['light', 'dark', 'auto'] as const)('honors explicit palette, semantic and component tokens in %s', (colorScheme) => {
+    document.documentElement.classList.add('dark');
+    const css = themeToCssVariables(getActiveTheme({
+      future, colorScheme,
+      theme: {
+        palette: { colors: { primary: { 500: '#123456' }, gray: { 500: '#abcdef' } } },
+        semantic: { colors: { surface: '#223344' } },
+        components: { markdown: { inlineCode: { background: '#334455' } } },
+      },
+      darkTheme: { components: { markdown: { table: { headerBackground: '#445566' } } } },
+    }));
+    expect(css['--persona-button-primary-bg']).toBe('#123456');
+    expect(css['--persona-text-muted']).toBe('#abcdef');
+    expect(css['--persona-surface']).toBe('#223344');
+    expect(css['--persona-md-inline-code-bg']).toBe('#334455');
+    if (colorScheme !== 'light') {
+      expect(css['--persona-md-table-header-bg']).toBe('#445566');
+      // A single custom gray stop must not reset the rest of V5's dark ramp.
+      if (v5Defaults) expect(css['--persona-text']).toBe('#f4f4f5');
+    }
+  });
+});
+
+it('keeps V5 dark body and markdown text above AA contrast', () => {
+  const css = themeToCssVariables(getActiveTheme({ colorScheme: 'dark', future: { v5Defaults: true } }));
+  const luminance = (hex: string) => {
+    const channels = hex.slice(1).match(/.{2}/g)!.map((channel) => {
+      const value = parseInt(channel, 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  for (const [foreground, background] of [
+    ['text', 'surface'], ['text', 'background'], ['text', 'container'],
+    ['text-muted', 'surface'], ['text-muted', 'container'],
+    ['text', 'message-user-bg'], ['md-inline-code-color', 'md-inline-code-bg'],
+    ['md-code-block-text-color', 'md-code-block-bg'], ['text', 'md-table-header-bg'],
+    ['md-blockquote-text-color', 'md-blockquote-bg'], ['md-link-color', 'surface'],
+    ['button-primary-fg', 'button-primary-bg'],
+  ]) {
+    const values = [foreground, background].map((token) => luminance(css[`--persona-${token}`]));
+    expect((Math.max(...values) + 0.05) / (Math.min(...values) + 0.05), `${foreground} on ${background}`).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+describe.each([false, true])('welcome typography defaults (V5: %s)', (v5Defaults) => {
+  it('resolves lighter V5 typography and preserves V4 fallbacks', () => {
+    const css = themeToCssVariables(getActiveTheme({ future: { v5Defaults } }));
+    expect(css['--persona-components-introCard-title-fontSize']).toBe(v5Defaults ? '22px' : undefined);
+    expect(css['--persona-components-introCard-title-fontWeight']).toBe(v5Defaults ? '500' : undefined);
+    expect(css['--persona-components-header-title-fontWeight']).toBe(v5Defaults ? '500' : undefined);
+    for (const variant of ['chip', 'card', 'list']) {
+      expect(css[`--persona-components-suggestion-${variant}-fontWeight`]).toBe(v5Defaults ? '400' : undefined);
+    }
+    if (v5Defaults) expect(css['--persona-input-radius']).toBe('9999px');
+  });
+
+  it('honors explicit typography and composer corners', () => {
+    const css = themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: {
+      introCard: { title: { fontWeight: '400', fontSize: '30px' } },
+      header: { title: { fontWeight: '600' } },
+      suggestion: { card: { fontWeight: '600' } },
+      input: { borderRadius: '20px' },
+    } } }));
+    expect(css['--persona-components-introCard-title-fontWeight']).toBe('400');
+    expect(css['--persona-components-introCard-title-fontSize']).toBe('30px');
+    expect(css['--persona-components-header-title-fontWeight']).toBe('600');
+    expect(css['--persona-components-suggestion-card-fontWeight']).toBe('600');
+    expect(css['--persona-input-radius']).toBe('20px');
+  });
+});
+
+describe.each([false, true])('activity aliases (V5 %s)', v5Defaults => {
+  it('emits versioned spacing and preserves independent spacing overrides', () => {
+    const defaults = themeToCssVariables(getActiveTheme({ future: { v5Defaults } }));
+    const expected = { indent: '0px', groupIndent: '0px', groupGap: '0px', groupPadding: '0px', transcriptGap: '0px', responseGap: '12px', bodyPadding: '4px 0', bodySize: '13px', bodyLineHeight: '1.5', bodyFontWeight: '400', sectionGap: '8px' };
+    for (const [key, value] of Object.entries(expected)) {
+      expect(defaults[`--persona-components-activity-${key}`]).toBe(v5Defaults ? value : undefined);
+    }
+    const activity = { indent: '12px', groupIndent: '6px', groupGap: '3px', groupPadding: '2px 0', transcriptGap: '6px', responseGap: '16px', bodyPadding: '10px 0', bodySize: '15px', bodyLineHeight: '1.7', bodyFontWeight: '500', sectionGap: '14px' };
+    const overridden = themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: { activity } } }));
+    for (const [key, value] of Object.entries(activity)) {
+      expect(overridden[`--persona-components-activity-${key}`]).toBe(value);
+    }
+  });
+  it('keeps legacy values usable while preferring explicit activity tokens', () => {
+    const vars = (activity?: { labelSize?: string; bodySurface?: string }) => themeToCssVariables(getActiveTheme({ future: { v5Defaults }, theme: { components: {
+      toolBubble: { labelSize: '17px', shadow: 'none' }, collapsibleWidget: { surface: '#123456' }, activity,
+    } } }));
+    expect(vars()['--persona-components-toolBubble-labelSize']).toBe('17px');
+    expect(vars()['--persona-components-activity-bodySurface']).toBe('#123456');
+    expect(vars({ labelSize: '15px', bodySurface: '#abcdef' })['--persona-components-toolBubble-labelSize']).toBe('15px');
+    expect(vars({ bodySurface: '#abcdef' })['--persona-components-activity-bodySurface']).toBe('#abcdef');
+  });
+});
+
+describe.each(['light', 'dark'] as const)('V5 header surface (%s)', colorScheme => {
+  it('matches the transcript container while preserving explicit header colors', () => {
+    const config = { colorScheme, future: { v5Defaults: true } };
+    const css = themeToCssVariables(getActiveTheme(config));
+    expect(css['--persona-header-bg']).toBe(css['--persona-container']);
+    const custom = themeToCssVariables(getActiveTheme({ ...config, theme: { components: { header: { background: '#123456' } } } }));
+    expect(custom['--persona-header-bg']).toBe('#123456');
+  });
+});
+
+describe('V5 header control surfaces', () => {
+  it('keeps V4 tokens unset and preserves explicit V5 overrides', () => {
+    const legacy = themeToCssVariables(createTheme());
+    const v5 = themeToCssVariables(createTheme(undefined, { future: { v5Defaults: true } }));
+    expect(legacy['--persona-components-header-controlBorderRadius']).toBeUndefined();
+    expect(v5['--persona-components-header-controlBorderRadius']).toBe('8px');
+    expect(v5['--persona-components-header-controlHoverBackground']).toContain('8%');
+    const custom = themeToCssVariables(createTheme({
+      components: { header: { controlBorderRadius: '4px', controlHoverBackground: 'red' } },
+    }, { future: { v5Defaults: true } }));
+    expect(custom['--persona-components-header-controlBorderRadius']).toBe('4px');
+    expect(custom['--persona-components-header-controlHoverBackground']).toBe('red');
   });
 });

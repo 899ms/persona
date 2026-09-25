@@ -66,6 +66,30 @@ describe("codegen subpath", () => {
     });
   });
 
+  it("preserves an authored v5 defaults opt-in in every output format", () => {
+    const futureConfig = { ...config, future: { v5Defaults: true } };
+    for (const format of [
+      "esm",
+      "script-installer",
+      "script-manual",
+      "script-advanced",
+      "react-component",
+      "react-advanced",
+    ] as const) {
+      const code = fromSubpath(futureConfig, format);
+      expect(code).toContain("v5Defaults");
+      expect(code).toContain("true");
+    }
+
+    const installer = fromSubpath(futureConfig, "script-installer");
+    const payload = JSON.parse(installer.match(/data-config='([^']*)'/)![1]);
+    expect(payload.future).toEqual({ v5Defaults: true });
+
+    expect(
+      fromSubpath({ ...config, future: { v5Defaults: false } }, "esm")
+    ).toContain("future: { v5Defaults: false }");
+  });
+
   describe("mount target option", () => {
     it("defaults to body when no target is given", () => {
       expect(fromSubpath(config, "react-component")).toContain("target: 'body'");
