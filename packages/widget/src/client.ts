@@ -49,6 +49,7 @@ import {
 import { resolveTarget } from "./utils/target";
 import { generateTurnId } from "./utils/message-id";
 import { builtInClientToolsForDispatch } from "./ask-user-question-tool";
+import { serializeWithToolPairs } from "./utils/tool-pair-replay";
 import {
   extractTextFromJson,
   createPlainTextParser,
@@ -220,6 +221,18 @@ const hasValidContent = (message: AgentWidgetMessage): boolean => {
   }
   return false;
 };
+
+const sortByCreatedAt = (messages: AgentWidgetMessage[]): AgentWidgetMessage[] =>
+  messages
+    .slice()
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+// Priority: contentParts (multi-modal) > llmContent (explicit LLM content) > rawContent (structured parsers) > content (display)
+const toPayloadMessage = (message: AgentWidgetMessage) => ({
+  role: message.role,
+  content: message.contentParts ?? message.llmContent ?? message.rawContent ?? message.content,
+  createdAt: message.createdAt
+});
 
 /**
  * Maps parserType string to the corresponding parser factory function
@@ -2533,22 +2546,17 @@ export class AgentWidgetClient {
       throw new Error('Agent configuration required for agent mode');
     }
 
-    // Filter out messages with empty content and normalize
-    const normalizedMessages = messages
-      .slice()
-      .filter(hasValidContent)
-      .filter(m => m.role === "user" || m.role === "assistant" || m.role === "system")
-      .filter(m => !m.variant || m.variant === "assistant")
-      .sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        return timeA - timeB;
-      })
-      .map((message) => ({
-        role: message.role,
-        content: message.contentParts ?? message.llmContent ?? message.rawContent ?? message.content,
-        createdAt: message.createdAt
-      }));
+    // Filter out messages with empty content and normalize; answered
+    // client-tool calls replay as paired toolCalls/toolResults messages.
+    const normalizedMessages = serializeWithToolPairs(
+      sortByCreatedAt(messages),
+      (message) =>
+        hasValidContent(message) &&
+        (message.role === "user" || message.role === "assistant" || message.role === "system") &&
+        (!message.variant || message.variant === "assistant")
+          ? toPayloadMessage(message)
+          : null
+    );
 
     const composer = this.normalizeComposerOptions(composerOptions);
     const payload: AgentWidgetAgentRequestPayload = {
@@ -2590,21 +2598,14 @@ export class AgentWidgetClient {
     messages: AgentWidgetMessage[],
     composerOptions?: ComposerOptionsPayload
   ): Promise<AgentWidgetRequestPayload> {
-    // Filter out messages with empty content to prevent validation errors
-    const normalizedMessages = messages
-      .slice()
-      .filter(hasValidContent)
-      .sort((a, b) => {
-        const timeA = new Date(a.createdAt).getTime();
-        const timeB = new Date(b.createdAt).getTime();
-        return timeA - timeB;
-      })
-      .map((message) => ({
-        role: message.role,
-        // Priority: contentParts (multi-modal) > llmContent (explicit LLM content) > rawContent (structured parsers) > content (display)
-        content: message.contentParts ?? message.llmContent ?? message.rawContent ?? message.content,
-        createdAt: message.createdAt
-      }));
+    // Filter out messages with empty content to prevent validation errors;
+    // answered client-tool calls replay as paired toolCalls/toolResults
+    // messages. Client-token mode maps `options.messages` itself and never
+    // reads these, so the server stays the replay owner there.
+    const normalizedMessages = serializeWithToolPairs(
+      sortByCreatedAt(messages),
+      (message) => (hasValidContent(message) ? toPayloadMessage(message) : null)
+    );
 
     const routed = this.routing();
     const payload: AgentWidgetRequestPayload = {
